@@ -1,0 +1,11 @@
+zoorDNS is an independent OpenWrt client using the Soar engine.
+
+Soar: https://github.com/getlantern/soar
+License: Apache License 2.0 (SOAR-LICENSE).
+Pinned revision: fea80aae6c60a9f27d7358e5f967cbc9b57bb37d.
+The upstream engine is used without source modifications.
+
+Additional dependencies: golang.org/x/crypto and golang.org/x/sys.
+Their license texts are included in licenses/.
+
+This project is not an official Lantern distribution.

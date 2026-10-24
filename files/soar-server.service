@@ -1,0 +1,23 @@
+[Unit]
+Description=Soar DNS tunnel server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=soar
+Group=soar
+EnvironmentFile=/etc/soar/server.env
+ExecStart=/opt/soar/soar-server -zone ${SOAR_ZONE} -key-file /etc/soar/server.key -listen 0.0.0.0:53
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

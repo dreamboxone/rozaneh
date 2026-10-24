@@ -1,0 +1,13 @@
+{
+  "luci-app-zoordns": {
+    "description": "Manage zoorDNS",
+    "read": {
+      "ubus": { "zoordns": ["status", "logs", "traffic", "dependencies", "update_status"] },
+      "uci": ["zoordns"]
+    },
+    "write": {
+      "ubus": { "zoordns": ["control", "test", "sites", "install_dependencies", "check_update", "install_update"] },
+      "uci": ["zoordns"]
+    }
+  }
+}

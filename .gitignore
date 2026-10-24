@@ -1,0 +1,9 @@
+zoordns-linux-*
+*.test
+*.exe
+*.key
+server.env
+prebuilt/
+dist/
+__pycache__/
+*.pyc

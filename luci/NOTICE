@@ -1,0 +1,10 @@
+The shared theme is from Zirgozar by dreamboxone:
+https://github.com/dreamboxone/zirgozar
+It is distributed under AGPL-3.0-or-later; its original notices are retained.
+
+Vazirmatn is distributed under the SIL Open Font License 1.1.
+The font's license is included alongside the font in fonts/OFL.txt.
+
+The zoorDNS dashboard, RPC methods and supplemental styles are additions
+distributed under AGPL-3.0-or-later. The Soar engine is a separate component
+under Apache-2.0; see the root NOTICE and SOAR-LICENSE.

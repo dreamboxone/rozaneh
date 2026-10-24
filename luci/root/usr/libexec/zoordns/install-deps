@@ -1,0 +1,18 @@
+#!/bin/sh
+trap 'rmdir /tmp/zoordns-deps.lock 2>/dev/null' EXIT INT TERM
+missing=''
+command -v curl >/dev/null 2>&1 || missing='curl'
+[ -s /etc/ssl/certs/ca-certificates.crt ] || missing="${missing:+$missing }ca-bundle"
+if [ -z "$missing" ]; then echo 'All dependencies are installed.'; exit 0; fi
+if command -v apk >/dev/null 2>&1; then
+	apk update && apk add $missing
+elif command -v opkg >/dev/null 2>&1; then
+	opkg update && opkg install $missing
+else
+	echo 'No supported package manager found.'
+	exit 1
+fi
+result=$?
+if [ "$result" = 0 ]; then echo 'Dependencies installed successfully.'
+else echo 'Installation failed. Check network connectivity and package repositories.'; fi
+exit "$result"
