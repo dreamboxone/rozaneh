@@ -15,7 +15,7 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSIONS = {"rozaneh": "1.0.0-r3"}
+VERSIONS = {"rozaneh": "1.0.0-r4"}
 
 
 def soar_version():
