@@ -36,7 +36,7 @@ return view.extend({
   o.value('speed',tr('Balanced speed','سرعت متعادل'));o.value('survival',tr('Lossy network','شبکه با افت زیاد'));o.value('tcp-survival',tr('TCP fallback','مسیر TCP'));o.default='speed';o.rmempty=false;
   o=s.option(form.ListValue,'resolver_ip_mode',tr('IP family','نسخه IP'));
   [['auto','خودکار'],['ipv4','فقط IPv4'],['ipv6','فقط IPv6'],['dual','هر دو']].forEach(function(item){o.value(item[0],fa?item[1]:item[0]);});o.default='auto';o.rmempty=false;
-  o=s.option(form.ListValue,'tunnel_mode',tr('Engine mode','حالت موتور'));
+  o=s.option(form.ListValue,'tunnel_mode',tr('Core mode','حالت هسته'));
   o.value('legacy','Normal');o.value('cottenmax',tr('CottenMax (experimental)','CottenMax (آزمایشی)'));o.default='legacy';o.rmempty=false;
   o=s.option(form.Value,'listen',tr('SOCKS5 listener','آدرس پراکسی SOCKS5'));o.default='127.0.0.1:1088';o.rmempty=false;
   o=s.option(form.TextValue,'advanced_config',tr('Advanced CottenDNS configuration','تنظیمات پیشرفته CottenDNS'));

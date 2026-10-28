@@ -81,7 +81,7 @@ return view.extend({
    if(core.latest_engine&&core.latest_engine!=='unknown')engineActions.push(installButton('engine','all',core,core.available?tr('Update with Rozaneh','به‌روزرسانی همراه روزنه'):tr('Reinstall with Rozaneh','نصب مجدد همراه روزنه')));
    app.replaceChildren(
     row(zui.name(),[chip('【 '+zui.versionText(core.current)+' 】','ok'),state(core)],[checkButton('app'),installButton('app','all',core)],'app'),
-    row(tr('CottenDNS engine','موتور CottenDNS'),[
+    row(tr('CottenDNS core','هسته CottenDNS'),[
      chip(engineVersion(core.current_engine),'ok',core.current_engine),
      core.latest_engine&&core.latest_engine!=='unknown'?E('span',{},[tr('With the available package: ','همراه بسته آماده: '),chip(engineVersion(core.latest_engine),'info',core.latest_engine)]):E('span',{'class':'mk-muted'},tr('No compatible package checked','بسته سازگار بررسی نشده')),
     ],engineActions,'engine')

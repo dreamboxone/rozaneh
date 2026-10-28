@@ -107,7 +107,7 @@ return baseclass.extend({
    session_idle:['How long an unused tunnel session is retained, such as 90s.','مدت نگهداری نشست تونل بدون استفاده؛ مانند 90s.'],
    discovery_pace:['Delay between resolver discovery probes, such as 20ms. A shorter delay increases probe traffic.','فاصله بررسی‌های کشف ریزالور؛ مانند 20 م‌ثانیه. فاصله کمتر ترافیک بررسی را افزایش می‌دهد.'],
    idle_timeout:['How long an inactive SOCKS connection can remain open, such as 5m.','مدتی که اتصال SOCKS بدون فعالیت باز می‌ماند؛ مانند 5m.'],
-   debug:['Enable detailed engine logs for troubleshooting. This increases log volume.','گزارش کامل موتور را برای عیب‌یابی فعال می‌کند و حجم گزارش‌ها را بیشتر می‌کند.']
+   debug:['Enable detailed engine logs for troubleshooting. This increases log volume.','گزارش کامل هسته را برای عیب‌یابی فعال می‌کند و حجم گزارش‌ها را بیشتر می‌کند.']
   };
   var value = descriptions[name];
   if (!value) return '';

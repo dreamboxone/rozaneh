@@ -14,7 +14,6 @@
 
 var readLogs = rpc.declare({ object: 'rozaneh', method: 'logs', expect: { '': {} } });
 var clearLogs = rpc.declare({ object: 'rozaneh', method: 'clear_logs', expect: { '': {} } });
-var diagnosticLogs = rpc.declare({ object: 'rozaneh', method: 'diagnostic_logs', expect: { '': {} } });
 var readStatus = rpc.declare({ object: 'rozaneh', method: 'status', expect: { '': {} } });
 var fa = localStorage.getItem('rozaneh-language') !== 'en';
 function tr(en, persian) { return fa ? persian : en; }
@@ -79,11 +78,6 @@ return view.extend({
     history=[]; draw({text:''});
    }).catch(function(){ui.addNotification(null,E('p',{},tr('Could not delete logs.','حذف گزارش ها انجام نشد.')),'error');}).finally(function(){clearing=false;});
   }) }, [icons.icon('trash'),tr('Delete','حذف')]);
-  var diagnosticButton=E('button',{type:'button','class':'mk-btn soft-blue',click:ui.createHandlerFn(this,function(){
-   return diagnosticLogs().then(function(result){return copyText(String(result.text||''));}).then(function(){
-    ui.addNotification(null,E('p',{},tr('Diagnostic report copied.','گزارش عیب یابی کپی شد.')),'info');
-   }).catch(function(){ui.addNotification(null,E('p',{},tr('Could not copy diagnostic report.','کپی گزارش عیب یابی انجام نشد.')),'error');});
-  })},[icons.icon('copy'),tr('Copy diagnostic report','کپی گزارش عیب یابی')]);
   var levelSelect=E('select',{id:'rozaneh-log-level','class':'mk-select',change:function(ev){
    selectedLevel=ev.target.value;localStorage.setItem('rozaneh-log-level',selectedLevel);draw({text:''});
   }},[['error',tr('Errors','خطا')],['info-error',tr('Information and errors','اطلاعات و خطا')],['debug',tr('Debug (all levels)','دیباگ')],['info',tr('Information','اطلاعات')]].map(function(item){
@@ -99,7 +93,7 @@ return view.extend({
    E('div', { 'class':'mk-card', style:'--accent:#8b5cf6' }, formNode),
    E('div', { 'class': 'mk-card', style: '--accent:#f59e0b' }, [
     E('h3', {}, tr('Recent logs', 'گزارش‌های اخیر')),
-    E('div', { 'class':'mk-row', style:'display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px' }, [E('label',{'for':'rozaneh-log-level'},tr('Log level','سطح گزارش')),levelSelect,copyButton,deleteButton,diagnosticButton]),
+    E('div', { 'class':'mk-row', style:'display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px' }, [E('label',{'for':'rozaneh-log-level'},tr('Log level','سطح گزارش')),levelSelect,copyButton,deleteButton]),
     output, failure
    ]),zui.footer()
   ]));

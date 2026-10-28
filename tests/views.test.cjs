@@ -151,7 +151,7 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert(updateRoot.textContent.includes('به‌روزرسانی'));
  assert(updateRoot.textContent.includes('نیازمندی‌های روتر'));
  assert.equal(walk(updateRoot).filter(n=>n.attrs.class==='zd-update-row').length,3);
- assert(updateRoot.textContent.includes('موتور CottenDNS'));
+ assert(updateRoot.textContent.includes('هسته CottenDNS'));
  assert(updateRoot.textContent.includes('2026.10.24'));
  assert(!updateRoot.textContent.includes('نصب مجدد همراه روزنه'));
  const checking=walk(updateRoot).find(n=>n.tag==='button'&&n.attrs['data-action']==='app:refresh');

@@ -28,7 +28,7 @@ Persian/English LuCI, responsive light/dark interface, SOCKS5, LAN TCP routing, 
 
 ## Updates and builds
 
-The displayed engine version uses the Gregorian release date, for example 2026.10.24. Full upstream release tags and immutable source revisions identify builds. The daily workflow checks published CottenDNS releases, builds and tests a complete matching Rozaneh package and publishes architecture assets together with LuCI.
+The displayed core version uses the Gregorian release date, for example 2026.10.24. Full upstream release tags and immutable source revisions identify builds. The daily workflow checks published CottenDNS releases, builds and tests a complete matching Rozaneh package and publishes architecture assets together with LuCI.
 
 Use scripts/build-release.py to cross-build and scripts/package.py to package. The source pin is cotten-upstream.json. Python, Git and a compatible Go toolchain are required. Third-party licenses are bundled.
 
