@@ -1,14 +1,41 @@
 <div dir="rtl" align="right">
 
-<h2>این پروژه نیاز به سرور مجازی لینوکسی خارج از ایران دارد.</h2>
+<p align="center">
+  <img src="luci/root/www/luci-static/resources/rozaneh/logo.png" alt="لوگوی روزنه" width="200">
+</p>
+
+<h1 align="center">روزنه | Rozaneh</h1>
+<h3 align="center">تونل DNS برای روتر OpenWrt، با موتور CottenDNS</h3>
+
+<p align="center" dir="ltr">
+  <a href="https://github.com/dreamboxone/rozaneh/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/dreamboxone/rozaneh?style=for-the-badge&amp;color=2563eb&amp;label=release"></a>
+  <img alt="OpenWrt" src="https://img.shields.io/badge/OpenWrt-00B5E2?style=for-the-badge&amp;logo=openwrt&amp;logoColor=white">
+  <a href="https://github.com/WhiteDNS/CottenDNS"><img alt="CottenDNS engine" src="https://img.shields.io/badge/engine-CottenDNS-7c3aed?style=for-the-badge"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0%20%2F%20AGPL--3.0-16a34a?style=for-the-badge"></a>
+  <a href="https://t.me/routekernel1"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-routekernel1-26A5E4?style=for-the-badge&amp;logo=telegram&amp;logoColor=white"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dreamboxone/rozaneh/releases/latest">⬇️ <b>دانلود آخرین نسخه</b></a> ·
+  <a href="README.md">🇮🇷 <b>فارسی</b></a> ·
+  <a href="README.en.md">🇬🇧 <b>English</b></a> ·
+  <a href="https://t.me/routekernel1">💬 <b>پشتیبانی</b></a>
+</p>
 
 <p align="right"><img src="assets/server-required-fa.svg" alt="برای استفاده از این برنامه نیاز به سرور مجازی لینوکسی خارج از ایران دارید." width="1000"></p>
 
-# روزنه
+---
 
 روزنه برنامه تونل DNS برای روترهای OpenWrt بر پایه موتور CottenDNS است. برای استفاده، علاوه بر روتر سازگار به سرور مجازی لینوکسی خارج از ایران، دامنه با واگذاری NS و کلید مشترک سرور نیاز دارید. راهنمای ساخت سرور در ادامه آمده است.
 
-## نصب مستقیم از گیتهاب با تشخیص خودکار معماری
+
+<p align="center">
+  <a href="#install">⬇️ نصب</a> · <a href="#manual-install">📂 نصب دستی</a> · <a href="#remove">🗑️ حذف</a> · <a href="#server">🌐 سرور</a> · <a href="#features">✨ امکانات</a> · <a href="#support">💚 حمایت</a>
+</p>
+
+<a id="install"></a>
+
+## ⬇️ نصب مستقیم از گیتهاب با تشخیص خودکار معماری
 
 در MobaXterm یک اتصال SSH به IP روتر باز کنید و با کاربر `root` وارد شوید. دستور زیر را در ترمینال **روتر** اجرا کنید:
 
@@ -24,7 +51,9 @@ wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/ro
 
 **این دستور پس از انتشار اسکریپت روی شاخه اصلی و انتشار بسته ها همراه `manifest.json` در بخش Releases قابل استفاده است. فایل های محلی لپ تاپ با این دستور دانلود نمی شوند.**
 
-## نصب با کپی فایل از طریق MobaXterm
+<a id="manual-install"></a>
+
+## 📂 نصب با کپی فایل از طریق MobaXterm
 
 ۱. از [بخش Releases](https://github.com/dreamboxone/rozaneh/releases) بسته روزنه مناسب معماری روتر را دانلود کنید. برای دیدن معماری، این دستور را در SSH روتر اجرا کنید:
 
@@ -56,9 +85,11 @@ opkg install /tmp/rozaneh-1.0.0-r1-arm_cortex-a7_neon-vfpv4.ipk
 
 </div>
 
-وابستگی های پایه با مدیر بسته نصب می شوند. سپس به **Services → Rozaneh** بروید. پیش از محدودیت اینترنت، نیازمندی های باقی مانده را از بخش به روزرسانی نصب کنید. دامنه تونل، کلید عمومی و ریزالورها را تنظیم و ذخیره کنید. ابتدا زیرگذر را خاموش و سپس کلید اصلی روزنه را روشن کنید.
+وابستگی های پایه با مدیر بسته نصب می شوند. سپس به **Services → Rozaneh** بروید. پیش از محدودیت اینترنت، نیازمندی های باقی مانده را از بخش به روزرسانی نصب کنید. دامنه تونل، کلید مشترک و ریزالورها را تنظیم و ذخیره کنید. ابتدا زیرگذر را خاموش و سپس کلید اصلی روزنه را روشن کنید.
 
-## حذف برنامه
+<a id="remove"></a>
+
+## 🗑️ حذف برنامه
 
 در SSH روتر فقط دستور مناسب مدیر بسته خود را اجرا کنید:
 
@@ -76,29 +107,41 @@ opkg remove rozaneh
 
 حذف بسته، سرویس روزنه را متوقف می کند. این دستور برای حذف بسته است؛ برای پاک کردن تنظیمات باقی مانده، ابتدا از تنظیمات مورد نیاز خود پشتیبان بگیرید.
 
-## راه اندازی CottenDNS
+<a id="server"></a>
+
+## 🌐 راه اندازی CottenDNS
 
 روی سرور از نسخه سازگار [CottenDNS](https://github.com/WhiteDNS/CottenDNS) استفاده کنید. دامنه باید با رکورد NS به سرور واگذار شود و پورت های UDP و TCP شماره 53 باز باشند. دامنه و کلید مشترک سرور را در بخش سرور روزنه وارد کنید؛ کلید عمومی Soar جایگزین این کلید نیست.
 
 برای سرور دارای پشتیبانی Max، حالت CottenMax را انتخاب کنید. حالت Normal نیز در دسترس است. تنظیمات این دو حالت یکسان نیستند؛ گزینه های ARQ و تکرار بسته Normal روی Max اثر ندارند. در ازمایش روتر، Max سه دقیقه با ترافیک واقعی بررسی شده است؛ این ازمایش تضمین پایداری روی همه شبکه ها نیست.
 
-## امکانات و محدودیت ها
+<a id="features"></a>
+
+## ✨ امکانات و محدودیت ها
 
 موتور اصلی CottenDNS با رابط فارسی و انگلیسی، حالت روشن و تیره، گزارش ها با کپی و پاک کردن، پراکسی SOCKS5، مسیریابی شبکه و کنترل سرویس در یک بسته نصب می شود. تنظیمات پیشرفته TOML موتور نیز در دسترس است. بعضی گزینه های رابط قدیمی هنوز در حال انتقال هستند. مسیریابی فعلی شبکه برای TCP است.
 
-## نسخه موتور و بروزرسانی
+<a id="updates"></a>
+
+## 🔄 نسخه موتور و بروزرسانی
 
 نسخه موتور در رابط با تاریخ میلادی مانند `2026.10.24` نمایش داده می شود. تگ کامل انتشار و شناسه سورس برای تشخیص دقیق نسخه نگهداری می شوند. موتور همراه بسته کامل روزنه و رابط LuCI بروزرسانی می شود. گردش کار روزانه گیتهاب نسخه منتشرشده CottenDNS را بررسی و پس از بیلد و تست، بسته جدید روزنه را منتشر می کند.
 
-## ساخت
+<a id="build"></a>
+
+## 🛠️ ساخت از سورس
 
 از `scripts/build-release.py` برای ساخت معماری های پشتیبانی شده و `scripts/package.py` برای بسته بندی استفاده کنید. نسخه منبع در `cotten-upstream.json` قفل شده است. بیلد به Python، Git و Go سازگار با موتور نیاز دارد؛ فایل های مجوز موتور و وابستگی ها همراه بسته نگهداری می شوند.
 
-## سپاسگزاری
+<a id="thanks"></a>
+
+## 🤝 سپاسگزاری
 
 از گروه WhiteDNS، سازندگان و مشارکت کنندگان [CottenDNS](https://github.com/WhiteDNS/CottenDNS)، به ویژه [TaJirax](https://github.com/TaJirax)، برای توسعه موتور و انتشار سورس آن سپاسگزاریم. روزنه از موتور اصلی این پروژه استفاده می کند. مجوزها و حقوق سازندگان اصلی محفوظ هستند.
 
-## حمایت مالی
+<a id="support"></a>
+
+## 💚 حمایت مالی
 
 اگر روزنه به کارتان آمده، می توانید با واریز تتر از توسعه این پروژه حمایت کنید.
 

@@ -1,3 +1,5 @@
+<p align="center"><img src="luci/root/www/luci-static/resources/rozaneh/logo.png" alt="Rozaneh logo" width="200"></p>
+
 **This project requires a Linux VPS outside Iran.**
 
 # Rozaneh
