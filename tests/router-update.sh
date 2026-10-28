@@ -5,6 +5,7 @@ set -eu
 stage=${1:?Usage: router-update.sh STAGED_UPDATER}
 work=$(mktemp -d /tmp/rozaneh-update-test.XXXXXX)
 cleanup() {
+	rm -f "$work/state/progress" "$work/state/progress.tmp"
 	rm -f "$work/bin/apk" "$work/bin/curl" "$work/bin/uci" "$work/bin/ubus" "$work/run.sh" "$work/calls" "$work/curl-calls" "$work/state/manifest.json" "$work/state/fixture.apk"
 	rmdir "$work/state/lock" 2>/dev/null || true
 	rmdir "$work/bin" "$work/state" "$work"
@@ -21,7 +22,11 @@ cat > "$work/bin/curl" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$UPDATE_CURL_CALLS"
 while [ "$#" -gt 0 ]; do
- if [ "$1" = -o ]; then shift; printf 'package fixture\n' > "$1"; exit 0; fi
+ if [ "$1" = -o ]; then
+  shift
+  if [ "${UPDATE_SLOW:-0}" = 1 ]; then printf 'package ' > "$1"; sleep 3; fi
+  printf 'package fixture\n' > "$1"; exit 0
+ fi
  shift
 done
 exit 1
@@ -44,7 +49,7 @@ export PATH="$work/bin:$PATH" UPDATE_CALLS="$work/calls" UPDATE_CURL_CALLS="$wor
 current=$(cat /usr/share/rozaneh/core.version)
 checksum=$(printf 'package fixture\n' | sha256sum | awk '{print $1}')
 manifest() {
- printf '{"schema":1,"components":{"rozaneh":{"version":"%s","bundled_luci":true,"assets":{"apk":{"%s":{"name":"fixture.apk","sha256":"%s"}}}}}}\n' "$1" "$DISTRIB_ARCH" "$checksum" > "$work/state/manifest.json"
+ printf '{"schema":1,"components":{"rozaneh":{"version":"%s","bundled_luci":true,"assets":{"apk":{"%s":{"name":"fixture.apk","sha256":"%s","size":16}}}}}}\n' "$1" "$DISTRIB_ARCH" "$checksum" > "$work/state/manifest.json"
 }
 export UPDATE_COMPARE='='
 manifest "$current"
@@ -65,6 +70,7 @@ manifest '99.0.0-r1'
 mkdir "$work/state/lock"
 sh "$work/run.sh" install all 0
 grep -q '^add --allow-untrusted ' "$work/calls"
+grep -q '^completed 100$' "$work/state/progress"
 rm -f "$work/calls" "$work/curl-calls"
 export UPDATE_USE_PROXY=1
 export UPDATE_COMPARE='='
@@ -75,4 +81,15 @@ sed 's|\[ "$(uci -q get rozaneh.main.enabled)" = 1 \] \&\& /etc/init.d/rozaneh r
 mv "$work/run.sh.tmp" "$work/run.sh"
 sh "$work/run.sh" install all 1
 grep -q -- '--socks5-hostname 127.0.0.1:1088' "$work/curl-calls"
-echo 'Updater unchanged, reinstall, downgrade rejection and upgrade scenarios passed'
+export UPDATE_SLOW=1
+mkdir "$work/state/lock"
+sh "$work/run.sh" install all 1 & slow_pid=$!
+saw_progress=0
+for attempt in 1 2 3 4 5; do
+ if grep -q '^downloading 50$' "$work/state/progress"; then saw_progress=1;break;fi
+ sleep 1
+done
+wait "$slow_pid"
+[ "$saw_progress" = 1 ]
+grep -q '^completed 100$' "$work/state/progress"
+echo 'Updater comparison, reinstall, proxy download and live progress scenarios passed'

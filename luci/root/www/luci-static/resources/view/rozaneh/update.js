@@ -35,6 +35,7 @@ return view.extend({
  load:function(){return Promise.all([status().catch(function(){return {};}),system().catch(function(){return {};})]);},
  render:function(initial){
   var report=initial[0]||{}, router=initial[1]||{}, notes={}, requesting='', installAsked=0;
+  var progressRow=localStorage.getItem('rozaneh-update-row')||'app';
   var app=E('div'),requirements=E('div'),log=E('pre',{'class':'zd-log'});
   function note(key,text,kind){notes[key]={text:translated(text||''),kind:kind||'info'};}
   function busy(){return !!requesting||report.installing||Date.now()-installAsked<8000;}
@@ -53,12 +54,16 @@ return view.extend({
   function installButton(key,scope,component,label){
    var newer=!!component.available, same=!!component.latest&&component.latest===component.current;
    return button(label||(newer?tr('Update to ','به‌روزرسانی به ')+zui.versionText(component.latest):tr('Reinstall','نصب مجدد')),newer?'success':'soft-blue',key,function(){
-    return install(scope,!newer).then(function(result){if(result.ok)installAsked=Date.now();return result;});
+    return install(scope,!newer).then(function(result){if(result.ok){installAsked=Date.now();progressRow=key;localStorage.setItem('rozaneh-update-row',key);}return result;});
    },'download',!newer&&!same);
   }
   function chip(text,tone,title){return E('bdi',{'class':'mk-chip '+(tone||''),dir:'ltr',title:title||text},text);}
   function row(label,value,actions,key){
    var n=notes[key];
+   if(key===progressRow&&report.phase){
+    var phases={preparing:tr('Preparing download…','در حال آماده سازی دانلود…'),downloading:tr('Downloading','در حال دانلود'),verifying:tr('Download complete; verifying file…','دانلود کامل شد؛ در حال بررسی فایل…'),installing:tr('Installing…','در حال نصب…'),completed:tr('Update completed.','بروزرسانی انجام شد.'),failed:tr('Update failed. See the update log.','بروزرسانی ناموفق بود. گزارش بروزرسانی را بررسی کنید.')};
+    if(phases[report.phase])n={text:phases[report.phase]+(report.phase==='downloading'&&report.progress>=0?' '+Number(report.progress)+'%':''),kind:report.phase==='failed'?'error':'info'};
+   }
    return E('div',{'class':'zd-update-row'},[
     E('div',{'class':'zd-update-label'},label),E('div',{'class':'zd-update-value'},value),E('div',{'class':'zd-update-actions'},actions),
     E('div',{'class':'zd-update-note '+(n?n.kind:''),role:'status',hidden:!n||!n.text},n?n.text:'')
@@ -103,6 +108,6 @@ return view.extend({
    zui.card(tr('Requirements','نیازمندی‌های روتر'),'shield','#f59e0b',requirements),
    E('details',{'class':'mk-card zd-update-log'},[E('summary',{},tr('Update log','گزارش به‌روزرسانی')),log]),zui.footer()
   ]);
-  draw();poll.add(refresh,5);return root;
+  draw();poll.add(refresh,2);return root;
  }
 });

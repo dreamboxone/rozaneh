@@ -17,7 +17,8 @@ class Node {
 const E=(tag,attrs,children)=>new Node(tag,attrs,children);
 const walk=node=>node instanceof Node?[node,...node.children.flatMap(walk)]:[];
 const base=path.join(__dirname,'../luci/root/www/luci-static/resources');
-const storage={getItem:()=> 'fa'};
+const storedValues={};
+const storage={getItem:key=>key==='rozaneh-update-row'?(storedValues[key]||null):'fa',setItem:(key,value)=>{storedValues[key]=value;}};
 const icons={icon:()=>E('span'),brand:()=>E('span')};
 const L={resource:p=>p,url:p=>p};
 const zui=new Function('baseclass','E','icons','localStorage','L',fs.readFileSync(path.join(base,'rozaneh/ui.js'),'utf8'))({extend:x=>x},E,icons,storage,L);
@@ -174,5 +175,14 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert.strictEqual(engineUpdate.attrs.disabled,null,'Available update must omit the disabled HTML attribute');
  await engineUpdate.attrs.click();
  assert(calls.some(c=>c[0]==='install_update'&&c[1]==='all'&&c[2]===false));
+ updateReport.phase='downloading';updateReport.progress=42;
+ const downloadRoot=updates.render([updateReport,state]);
+ assert(downloadRoot.textContent.includes('در حال دانلود 42%'));
+ const progressNotes=walk(downloadRoot).filter(n=>n.attrs.class&&n.attrs.class.startsWith('zd-update-note')&&n.textContent.includes('42%'));
+ assert.equal(progressNotes.length,1,'Download progress appears under the selected row only');
+ updateReport.phase='installing';updateReport.progress=-1;
+ const installRoot=updates.render([updateReport,state]);
+ assert(installRoot.textContent.includes('در حال نصب'));
+ assert(!installRoot.textContent.includes('42%'));
  console.log('Dashboard controls, automatic status and update row checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
