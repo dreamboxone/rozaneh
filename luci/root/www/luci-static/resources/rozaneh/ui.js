@@ -50,8 +50,9 @@ return baseclass.extend({
     });
     var label = E('span', { 'class':'zd-help-label' });
     while (title.firstChild) label.appendChild(title.firstChild);
+    label.appendChild(document.createTextNode('\u00a0'));
+    label.appendChild(button);
     title.appendChild(label);
-    title.appendChild(button);
     title.classList.add('zd-has-help');
    });
   }
