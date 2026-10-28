@@ -171,6 +171,7 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert(engineRoot.textContent.includes('v0.2.5'));
  const engineUpdate=walk(engineRoot).find(n=>n.tag==='button'&&n.textContent===' به‌روزرسانی همراه روزنه');
  assert(engineUpdate);
+ assert.strictEqual(engineUpdate.attrs.disabled,null,'Available update must omit the disabled HTML attribute');
  await engineUpdate.attrs.click();
  assert(calls.some(c=>c[0]==='install_update'&&c[1]==='all'&&c[2]===false));
  console.log('Dashboard controls, automatic status and update row checks passed');

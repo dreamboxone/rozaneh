@@ -40,7 +40,7 @@ return view.extend({
   function busy(){return !!requesting||report.installing||Date.now()-installAsked<8000;}
   function button(label,tone,key,fn,icon,disabled){
    var actionKey=key+':'+(icon||'refresh');
-   return E('button',{type:'button','data-action':actionKey,'class':'mk-btn '+tone+' mk-small'+(requesting===actionKey?' mk-running':''),disabled:busy()||disabled,click:function(){
+   return E('button',{type:'button','data-action':actionKey,'class':'mk-btn '+tone+' mk-small'+(requesting===actionKey?' mk-running':''),disabled:(busy()||disabled)?true:null,click:function(){
     if(busy())return;
     requesting=actionKey;note(key,'');draw();
     return Promise.resolve().then(fn).then(function(result){
