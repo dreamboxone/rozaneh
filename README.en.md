@@ -1,3 +1,5 @@
+**This project requires a Linux VPS outside Iran.**
+
 # Rozaneh
 
 OpenWrt DNS tunnel client powered by the pinned original [CottenDNS](https://github.com/WhiteDNS/CottenDNS) runtime.
@@ -31,3 +33,19 @@ Use scripts/build-release.py to cross-build and scripts/package.py to package. T
 ## Remove
 
 Use apk del rozaneh or opkg remove rozaneh. Back up /etc/config/rozaneh and /etc/rozaneh if settings are needed later.
+
+## Acknowledgements
+
+Thanks to the WhiteDNS team, [TaJirax](https://github.com/TaJirax) and all [CottenDNS](https://github.com/WhiteDNS/CottenDNS) contributors for developing and publishing the original engine used by Rozaneh. Upstream licenses, copyright and attribution are preserved.
+
+## Support development
+
+If Rozaneh is useful to you, you can support development with a donation.
+
+**USDT — BEP20 (BSC) network only**
+
+```
+0x56daaa6b76d88ee0c8dba8042121f4b77de0a813
+```
+
+Use only USDT on BEP20 (BSC), not another asset or network.
