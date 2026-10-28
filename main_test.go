@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+
 package main
 
 import (
@@ -12,10 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getlantern/soar"
+	"github.com/dreamboxone/rozaneh/internal/tunnelengine"
 )
 
 func TestSOCKSThroughSoar(t *testing.T) {
+	t.Run("duplex", func(t *testing.T) { testSOCKSThroughSoar(t, false) })
+	t.Run("upload-before-response", func(t *testing.T) { testSOCKSThroughSoar(t, true) })
+}
+func testSOCKSThroughSoar(t *testing.T, uploadOnly bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -31,7 +38,17 @@ func TestSOCKSThroughSoar(t *testing.T) {
 	dial := func(_ context.Context, network, addr string) (net.Conn, error) {
 		requested <- addr
 		a, b := net.Pipe()
-		go func() { defer b.Close(); io.Copy(b, b) }()
+		go func() {
+			defer b.Close()
+			if uploadOnly {
+				data := make([]byte, 3*1024*1024)
+				if _, err := io.ReadFull(b, data); err == nil {
+					b.Write(data)
+				}
+			} else {
+				io.Copy(b, b)
+			}
+		}()
 		return a, nil
 	}
 	serverDone := make(chan error, 1)
@@ -59,7 +76,7 @@ func TestSOCKSThroughSoar(t *testing.T) {
 	go func() {
 		defer b.Close()
 		handle(ctx, b, func(ctx context.Context, network, addr string) (net.Conn, error) {
-			conn, err := cl.DialContext(ctx, network, addr)
+			conn, err := dialConfirmed(ctx, cl, addr)
 			if err != nil {
 				return nil, err
 			}
@@ -98,7 +115,11 @@ func TestSOCKSThroughSoar(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
-	payload := make([]byte, 128*1024)
+	size := 128 * 1024
+	if uploadOnly {
+		size = 3 * 1024 * 1024
+	}
+	payload := make([]byte, size)
 	if _, err = rand.Read(payload); err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +145,5 @@ func TestSOCKSThroughSoar(t *testing.T) {
 	if reloaded.snapshot().Today != measured {
 		t.Fatal("traffic accounting did not survive restart")
 	}
-	t.Log("128 KiB roundtrip through SOCKS5 and authenticated Soar DNS tunnel; destination hostname and traffic accounting verified")
+	t.Logf("%d byte transfer through SOCKS5 and authenticated Soar DNS tunnel; upload-only=%v", size, uploadOnly)
 }

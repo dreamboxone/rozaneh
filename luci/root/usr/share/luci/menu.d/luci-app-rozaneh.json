@@ -1,0 +1,70 @@
+{
+  "admin/services/rozaneh": {
+    "title": "Rozaneh",
+    "order": 41,
+    "action": {
+      "type": "firstchild"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-rozaneh"
+      ]
+    }
+  },
+  "admin/services/rozaneh/dashboard": {
+    "title": "Home",
+    "order": 10,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/dashboard"
+    }
+  },
+  "admin/services/rozaneh/update": {
+    "title": "Updates",
+    "order": 20,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/update"
+    }
+  },
+  "admin/services/rozaneh/log": {
+    "title": "Logs",
+    "order": 30,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/log"
+    }
+  },
+  "admin/services/rozaneh/settings": {
+    "title": "Other settings",
+    "order": 15,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/settings"
+    }
+  },
+  "admin/services/rozaneh/dns": {
+    "title": "DNS",
+    "order": 12,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/dns"
+    }
+  },
+  "admin/services/rozaneh/server": {
+    "title": "Server",
+    "order": 11,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/server"
+    }
+  },
+  "admin/services/rozaneh/network": {
+    "title": "Network",
+    "order": 13,
+    "action": {
+      "type": "view",
+      "path": "rozaneh/network"
+    }
+  }
+}

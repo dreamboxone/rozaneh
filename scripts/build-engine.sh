@@ -1,7 +1,10 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
 set -eu
 arch=${1:?Usage: build-engine.sh OPENWRT_ARCH}
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$root"
 export GOOS=linux CGO_ENABLED=0
 unset GOARM GOMIPS GOMIPS64
 case "$arch" in
@@ -20,4 +23,4 @@ esac
 case "$arch" in arm_arm1176*) export GOARM=6 ;; esac
 mkdir -p "$root/prebuilt/$arch"
 cd "$root"
-go build -trimpath -ldflags '-s -w' -o "prebuilt/$arch/zoordns" .
+python3 scripts/build-cotten.py --output "prebuilt/$arch/rozaneh" --goarch "$GOARCH" --goarm "${GOARM:-7}" --test

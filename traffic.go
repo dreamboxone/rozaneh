@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+
 package main
 
 import (

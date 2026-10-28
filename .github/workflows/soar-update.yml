@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+name: Daily CottenDNS update
+
+on:
+  schedule:
+    # 05:47 Asia/Tehran (UTC+03:30).
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Build a complete release even if the engine commit is unchanged
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cotten-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check upstream stable release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_BUILD: ${{ inputs.force_build || false }}
+        run: |
+          args=()
+          if [ "$FORCE_BUILD" = true ]; then args+=(--force); fi
+          python scripts/cotten-release.py check --state "$RUNNER_TEMP/cotten-state.json" "${args[@]}"
+      - uses: actions/setup-go@v5
+        if: steps.check.outputs.changed == 'true'
+        with:
+          go-version: '1.26.0'
+          check-latest: true
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.changed == 'true'
+        with:
+          node-version: '22'
+      - name: Prepare dependency and package revision
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          python scripts/cotten-release.py prepare --state "$RUNNER_TEMP/cotten-state.json"
+      - name: Test and cross-build all engines
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          go mod verify
+          python scripts/build-release.py
+          node tests/luci.test.cjs
+          node tests/views.test.cjs
+          node tests/logs.test.cjs
+          python tests/test_package.py
+          sh tests/router-control.sh
+          sh tests/router-logs.sh
+      - name: Download checksum-verified OpenWrt package tools
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          sdk=openwrt-sdk-25.12.6-ipq40xx-chromium_gcc-14.3.0_musl_eabi.Linux-x86_64.tar.zst
+          curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
+            "https://downloads.openwrt.org/releases/25.12.6/targets/ipq40xx/chromium/$sdk" -o "$RUNNER_TEMP/sdk.tar.zst"
+          echo "4226c554ae78bf9ade6b6f282dc5961d0e4f56209b4970db3a87c1363b60eda2  $RUNNER_TEMP/sdk.tar.zst" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/openwrt-sdk"
+          tar --zstd -xf "$RUNNER_TEMP/sdk.tar.zst" -C "$RUNNER_TEMP/openwrt-sdk" --strip-components=1
+      - name: Package and verify complete release
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          python scripts/package.py --all --format both --output dist/release \
+            --apk-tool "$RUNNER_TEMP/openwrt-sdk/staging_dir/host/bin/apk"
+          python scripts/cotten-release.py verify --state "$RUNNER_TEMP/cotten-state.json" --output dist/release
+          mkdir -p release-source
+          cp "$RUNNER_TEMP/cotten-state.json" release-source/state.json
+          git diff --binary -- cotten-upstream.json Makefile scripts/package.py > release-source/source.patch
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.changed == 'true'
+        with:
+          name: complete-release
+          path: |
+            dist/release/
+            release-source/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: complete-release
+          path: release-payload
+      - name: Commit tested source and publish all assets together
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib, re, subprocess
+          root = pathlib.Path('release-payload')
+          state = json.loads((root / 'release-source/state.json').read_text())
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if head != state['base_sha']:
+              raise SystemExit('Default branch changed during the build; rerun before publishing')
+          if not re.fullmatch(r'v\d+\.\d+\.\d+-r\d+', state['tag']):
+              raise SystemExit('Invalid release tag')
+          output = root / 'dist/release'
+          manifest = json.loads((output / 'manifest.json').read_text())
+          app = manifest['components']['rozaneh']
+          if app['version'] != state['package_version'] or app['engine_version'] != state['engine']:
+              raise SystemExit('Release metadata mismatch')
+          assets = [output / 'manifest.json']
+          for group in app['assets'].values():
+              for item in group.values():
+                  path = output / item['name']
+                  if path.name != item['name'] or hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
+                      raise SystemExit('Release asset checksum mismatch')
+                  assets.append(path)
+          subprocess.run(['git', 'apply', '--check', str(root / 'release-source/source.patch')], check=True)
+          subprocess.run(['git', 'apply', str(root / 'release-source/source.patch')], check=True)
+          subprocess.run(['git', 'config', 'user.name', 'Release maintenance'], check=True)
+          subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git', 'add', 'cotten-upstream.json', 'Makefile', 'scripts/package.py'], check=True)
+          subprocess.run(['git', 'commit', '-m', 'Update CottenDNS to ' + state['engine'] + ' and release ' + state['package_version']], check=True)
+          subprocess.run(['git', 'tag', state['tag']], check=True)
+          import os
+          subprocess.run(['git', 'push', '--atomic', 'origin', 'HEAD:refs/heads/' + os.environ['DEFAULT_BRANCH'], 'refs/tags/' + state['tag']], check=True)
+          notes = 'Includes CottenDNS ' + state['engine'] + ' with the complete Rozaneh interface.\n\nValidation: integration tests, interface tests, all architecture builds, IPK/APK packages and SHA-256 verification.\n\nUpstream: ' + state['upstream_url']
+          # A draft is hidden from the router updater until every asset is uploaded.
+          subprocess.run(['gh', 'release', 'create', state['tag'], '--verify-tag', '--draft', '--title', 'Rozaneh ' + state['package_version'], '--notes', notes, *map(str, assets)], check=True)
+          subprocess.run(['gh', 'release', 'edit', state['tag'], '--draft=false', '--latest'], check=True)
+          PY

@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+trap 'rmdir /tmp/rozaneh-deps.lock 2>/dev/null' EXIT INT TERM
+. /usr/libexec/rozaneh/dependencies.sh
+scope=${1:-base}
+case "$scope" in base|lan) ;; *) exit 1 ;; esac
+rozaneh_missing_dependencies "$scope"
+if [ -z "$missing" ]; then
+ echo 'All dependencies are installed.'
+ if [ "$scope" = lan ]; then echo "Using sing-box: $(rozaneh_find_singbox)"; fi
+ exit 0
+fi
+echo "Installing required packages: $missing"
+if command -v apk >/dev/null 2>&1; then
+	apk update && apk add --upgrade $missing
+elif command -v opkg >/dev/null 2>&1; then
+	opkg update && opkg install $missing
+else
+	echo 'No supported package manager found.'
+	exit 1
+fi
+result=$?
+if [ "$result" = 0 ]; then
+ rozaneh_missing_dependencies "$scope"
+ if [ -n "$missing" ]; then echo "Packages are still missing or unsupported: $missing. LAN mode requires sing-box 1.12 or newer in the 1.x series; the configured repositories may not provide it."; exit 1; fi
+ echo 'Dependencies installed successfully.'
+else echo 'Installation failed. Check network connectivity and package repositories.'; fi
+exit "$result"

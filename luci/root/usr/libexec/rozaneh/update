@@ -1,0 +1,135 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+. /usr/share/libubox/jshn.sh
+umask 077
+repo='https://github.com/dreamboxone/rozaneh/releases/latest/download'
+state=/tmp/rozaneh-update
+mkdir -p "$state"
+reply() { json_init; json_add_boolean ok "$1"; json_add_string message "$2"; json_dump; }
+platform() {
+	. /etc/openwrt_release
+	arch=$DISTRIB_ARCH
+	if command -v apk >/dev/null 2>&1; then format=apk; else format=ipk; fi
+}
+component() {
+	json_load "$(cat "$state/manifest.json")" || return 1
+	json_select components && json_select "$1" || return 1
+	json_get_var bundled_luci bundled_luci
+ [ "$bundled_luci" = 1 ] || return 1
+	json_get_var latest version
+ json_get_var engine_version engine_version
+	json_select assets && json_select "$format" || return 1
+	if [ "$1" = luci-app-rozaneh ]; then json_select all || return 1; else json_select "$arch" || return 1; fi
+	json_get_var filename name; json_get_var checksum sha256
+	case "$filename" in ''|*[!a-zA-Z0-9._+-]*) return 1 ;; esac
+	case "$checksum" in ''|*[!a-fA-F0-9]*) return 1 ;; esac
+	[ "${#checksum}" = 64 ] && [ -n "$latest" ]
+}
+installed() {
+	case "$1" in rozaneh) cat /usr/share/rozaneh/core.version 2>/dev/null || echo 0.1.0-r1 ;; *) cat /usr/share/rozaneh/luci.version 2>/dev/null || echo 0.1.0-r1 ;; esac
+}
+newer() {
+	if [ "$format" = apk ]; then apk version -t "$1" "$2" | grep -q '^<$'
+	else opkg compare-versions "$1" '<' "$2"; fi
+}
+fetch() {
+	local listen services
+	if [ "$(uci -q get rozaneh.main.enabled)" = 1 ]; then
+		services=$(ubus call service list '{"name":"rozaneh"}' 2>/dev/null)
+		if echo "$services" | jsonfilter -e '@.rozaneh.instances.client.running' | grep -q true; then
+			listen=$(uci -q get rozaneh.main.listen)
+			[ -n "$listen" ] || listen=127.0.0.1:1088
+			case "$listen" in 0.0.0.0:*) listen="127.0.0.1:${listen##*:}" ;; esac
+			curl --noproxy '' --socks5-hostname "$listen" "$@"
+			return $?
+		fi
+	fi
+	curl "$@"
+}
+fetch_manifest() {
+	command -v curl >/dev/null 2>&1 || return 1
+	fetch --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 6 --max-time 12 --max-filesize 1048576 "$repo/manifest.json" -o "$state/manifest.tmp" || return 1
+	json_load "$(cat "$state/manifest.tmp")" || return 1
+	json_get_var schema schema
+	[ "$schema" = 1 ] || return 1
+	mv "$state/manifest.tmp" "$state/manifest.json"
+}
+status() {
+	platform
+	json_init
+	json_add_boolean installing "$([ -d "$state/lock" ] && echo 1 || echo 0)"
+	json_add_string log "$(tail -8 "$state/install.log" 2>/dev/null)"
+	json_add_string architecture "$arch"
+	json_add_string format "$format"
+	json_add_array components
+	for name in rozaneh; do
+		current=$(installed "$name")
+		available=0; latest=''; filename=''; latest_engine=''
+		if [ -s "$state/manifest.json" ]; then
+			# jshn stores its current document in shell variables. Isolate parsing.
+			info=$(component "$name" && echo "$latest $filename ${engine_version:-unknown}")
+			read -r latest filename latest_engine <<EOF
+$info
+EOF
+			[ -n "$latest" ] && newer "$current" "$latest" && available=1
+		fi
+		json_add_object ''; json_add_string name "$name"; json_add_string current "$current"; json_add_string latest "$latest"; json_add_boolean available "$available"
+  if [ "$name" = rozaneh ]; then
+   json_add_string current_engine "$(/usr/bin/rozaneh -version-json 2>/dev/null | jsonfilter -e '@.engine_version')"
+   json_add_string latest_engine "${latest_engine:-unknown}"
+  fi
+  json_close_object
+	done
+	json_close_array; json_dump
+}
+case "$1" in
+check)
+	if fetch_manifest; then status; else reply 0 'No usable release manifest was found. Check dependencies, connectivity and published GitHub releases.'; fi
+	;;
+status) status ;;
+start)
+ scope=${2:-all}
+ force=${3:-0}
+ case "$force" in 0|1) ;; *) reply 0 'Unsupported reinstall flag'; exit 0 ;; esac
+ case "$scope" in all) ;; *) reply 0 'Unsupported update scope'; exit 0 ;; esac
+	[ -s "$state/manifest.json" ] || { reply 0 'Check for updates first.'; exit 0; }
+	mkdir "$state/lock" 2>/dev/null || { reply 0 'An update is already running.'; exit 0; }
+	cp /usr/libexec/rozaneh/update "$state/run.sh"
+	sh "$state/run.sh" install "$scope" "$force" > "$state/install.log" 2>&1 < /dev/null &
+	if [ "$force" = 1 ]; then reply 1 'Reinstallation started.'; else reply 1 'Update started. The complete app will be downloaded.'; fi
+	;;
+install)
+ scope=${2:-all}
+ force=${3:-0}
+ case "$force" in 0|1) ;; *) exit 1 ;; esac
+ case "$scope" in all) components=rozaneh ;; *) exit 1 ;; esac
+	trap 'rmdir "$state/lock" 2>/dev/null' EXIT INT TERM
+	platform
+	set --
+	for name in $components; do
+		current=$(installed "$name")
+		component "$name" || { echo "No compatible asset: $name ($arch, $format)"; exit 1; }
+		if ! newer "$current" "$latest"; then
+			[ "$force" = 1 ] && [ "$current" = "$latest" ] || { echo "Unchanged: $name"; continue; }
+		fi
+		echo "Downloading: $name $latest"
+		fetch --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 240 --max-filesize 67108864 "$repo/$filename" -o "$state/$filename" || exit 1
+		printf '%s  %s\n' "$checksum" "$state/$filename" | sha256sum -c - || exit 1
+		set -- "$@" "$state/$filename"
+	done
+	[ "$#" -gt 0 ] || { echo 'Already up to date.'; exit 0; }
+	if [ "$format" = apk ]; then
+		if [ "$force" = 1 ]; then apk add --force-reinstall --allow-untrusted "$@"; else apk add --allow-untrusted "$@"; fi
+	else
+		if [ "$force" = 1 ]; then opkg --force-reinstall install "$@"; else opkg install "$@"; fi
+	fi
+	result=$?
+	if [ "$result" = 0 ]; then
+		[ "$(uci -q get rozaneh.main.enabled)" = 1 ] && /etc/init.d/rozaneh restart
+		echo 'Update completed.'
+	else echo 'Update failed. Existing configuration has been retained.'; fi
+	exit "$result"
+	;;
+*) reply 0 'Unknown update action' ;;
+esac

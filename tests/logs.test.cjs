@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+ */
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const logs=new Function('baseclass',fs.readFileSync(path.join(__dirname,'../luci/root/www/luci-static/resources/rozaneh/logs.js'),'utf8'))({extend:value=>value});
+const raw='Wed Oct 28 09:12:34 2026 daemon.err rozaneh[123]: Zirgozar is on; Rozaneh will not start';
+assert.equal(logs.format(raw,false),raw);
+const persian=logs.format(raw,true);
+assert(persian.includes('۱۴۰۵/۰۸/۰۶'));
+assert(persian.includes('۰۹:۱۲:۳۴'));
+assert(persian.includes('زیرگذر روشن است؛ روزنه اجرا نمی‌شود'));
+assert(persian.includes('[خطا]'));
+assert(!persian.includes('Wed Oct'));
+assert.deepEqual(logs.merge(['a','b'],'a\nb'),['a','b']);
+assert.deepEqual(logs.merge(['a','b'],'b\nc'),['a','b','c']);
+assert.deepEqual(logs.merge(['a','b'],''),['a','b']);
+assert.deepEqual(logs.merge(['a','b'],'c\nd'),['a','b','c','d']);
+assert.deepEqual(logs.merge(['a','a'],'a\na\na'),['a','a','a']);
+assert.equal(logs.merge([],Array.from({length:35},(_,i)=>String(i)).join('\n')).length,30);
+assert.equal(logs.merge([],Array.from({length:35},(_,i)=>String(i)).join('\n'))[0],'5');
+assert.equal(logs.merge([],Array.from({length:450},(_,i)=>String(i)).join('\n'),0).length,450);
+assert(logs.format('Wed Oct 28 09:12:34 2026 daemon.info rozaneh[1]: 2026/10/28 09:12:34 SOCKS5 listening on 127.0.0.1:1088',true).includes('پراکسی SOCKS5 آماده دریافت اتصال است در 127.0.0.1:1088'));
+assert(logs.format('Wed Oct 28 09:12:34 2026 daemon.err rozaneh[1]: {"msg":"tunnel connect: context deadline exceeded","error":"connection refused"}',true).includes('اتصال تونل: مهلت عملیات تمام شد · خطا: اتصال رد شد'));
+assert.equal(logs.format('unrecognized technical detail',true),'unrecognized technical detail');
+const tunnelLog='Wed Oct 28 12:04:21 2026 daemon.err lan-run.sh[10726]: \x1b[36mINFO\x1b[0m[0062] [3129186652 2ms] outbound/socks[tunnel]: outbound connection to example.com:443';
+const translatedTunnel=logs.format(tunnelLog,true);
+assert(translatedTunnel.includes('[اطلاعات]'));
+assert(!translatedTunnel.includes('[خطا]'));
+assert(translatedTunnel.includes('2 م‌ثانیه'));
+assert(translatedTunnel.includes('خروجی پراکسی تونل: اتصال خروجی به example.com:443'));
+assert.equal(logs.format(tunnelLog,false),tunnelLog);
+const filterFixture=[tunnelLog,'Wed Oct 28 12:04:22 2026 daemon.err rozaneh[1]: failed','Wed Oct 28 12:04:22 2026 daemon.debug rozaneh[1]: details'].join('\n');
+assert.equal(logs.filter(filterFixture,'info'),tunnelLog);
+assert.equal(logs.filter(filterFixture,'error').split('\n').length,1);
+assert.equal(logs.filter(filterFixture,'info-error').split('\n').length,2);
+assert.equal(logs.filter(filterFixture,'debug'),filterFixture);
+const resetLog='Wed Oct 28 12:04:22 2026 daemon.err rozaneh[10725]: 2026/10/28 08:34:22 tunnel connect: soar: stream reset by peer';
+assert(logs.format(resetLog,true).includes('جریان ارتباط از سمت مقابل قطع شد'));
+console.log('Log calendar, language, diagnostic preservation and history merge checks passed');

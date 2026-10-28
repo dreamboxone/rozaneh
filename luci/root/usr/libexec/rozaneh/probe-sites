@@ -1,0 +1,43 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+. /usr/share/libubox/jshn.sh
+json_init
+if ! command -v curl >/dev/null 2>&1; then
+	json_add_string error 'Install missing dependencies first.'; json_dump; exit 0
+fi
+listen=$(uci -q get rozaneh.main.listen)
+[ -n "$listen" ] || listen=127.0.0.1:1088
+case "$listen" in 0.0.0.0:*) listen="127.0.0.1:${listen##*:}" ;; esac
+work=$(mktemp -d /tmp/rozaneh-probes.XXXXXX) || exit 1
+trap 'rm -f "$work/reddit" "$work/instagram" "$work/x"; rmdir "$work"' EXIT INT TERM
+probe() {
+	curl --head --location --max-redirs 3 --proto '=https' --proto-redir '=https' --silent --output /dev/null --socks5-hostname "$listen" --connect-timeout 8 --max-time 15 --write-out '%{http_code} %{time_starttransfer} %{time_total}' "$2" > "$work/$1" 2>/dev/null
+	code=$?
+	printf ' %s\n' "$code" >> "$work/$1"
+}
+selected=${1:-all}
+case "$selected" in all) selected='reddit instagram x' ;; reddit|instagram|x) ;; *) exit 1 ;; esac
+for site in $selected; do
+	case "$site" in reddit) url=https://www.reddit.com/ ;; instagram) url=https://www.instagram.com/ ;; x) url=https://x.com/ ;; esac
+	probe "$site" "$url" &
+done
+wait
+json_add_array sites
+for site in $selected; do
+	read -r code first total exit_code < "$work/$site"
+	state=failed
+	if [ "${exit_code:-1}" = 0 ]; then
+		case "$code" in 2??) state=ok ;; 3??|4??|5??) state=restricted ;; esac
+	fi
+	json_add_object ''
+	json_add_string name "$site"
+	json_add_string state "$state"
+	json_add_string http "${code:-000}"
+	json_add_string seconds "${first:-0}"
+	json_add_string total "${total:-0}"
+	json_add_int exit_code "${exit_code:-1}"
+	json_close_object
+done
+json_close_array
+json_dump

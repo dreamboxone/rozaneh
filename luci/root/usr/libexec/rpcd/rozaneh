@@ -1,0 +1,208 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+. /usr/share/libubox/jshn.sh
+
+reply() {
+	json_init
+	json_add_boolean ok "$1"
+	json_add_string message "$2"
+	json_dump
+}
+
+dependency_list() {
+ . /usr/libexec/rozaneh/dependencies.sh
+ rozaneh_missing_dependencies "${scope:-base}"
+}
+
+case "$1" in
+list)
+	echo '{"status":{},"logs":{},"clear_logs":{},"diagnostic_logs":{},"traffic":{},"paths":{},"dependencies":{},"control":{"action":""},"test":{},"sites":{"site":""},"install_dependencies":{"scope":""},"check_update":{},"install_update":{"scope":"","force":false},"update_status":{}}'
+	;;
+call)
+	case "$2" in
+	status)
+		running=0
+		services=$(ubus call service list '{"name":"rozaneh"}')
+		echo "$services" | jsonfilter -e '@.rozaneh.instances.client.running' -e '@.rozaneh.instances.instance1.running' | grep -q true && running=1
+		lan_running=0
+		echo "$services" | jsonfilter -e '@.rozaneh.instances.lan.running' | grep -q true && lan_running=1
+		lan_ready=0
+		if [ "$lan_running" = 1 ] && [ -s /var/run/rozaneh-lan/ready ] &&
+		   [ "$(cat /var/run/rozaneh-lan/ready)" = "$(cat /var/run/rozaneh-lan/owned 2>/dev/null)" ]; then lan_ready=1; fi
+		health_running=0
+		echo "$services" | jsonfilter -e '@.rozaneh.instances.health.running' | grep -q true && health_running=1
+		dependency_list
+		health_updated=$(jsonfilter -i /var/run/rozaneh/health.json -e '@.updated' 2>/dev/null)
+		case "$health_updated" in ''|*[!0-9]*) health_updated=0 ;; esac
+		now=$(date +%s)
+		connected=0
+		if [ "$running" = 1 ] && [ "$lan_ready" = 1 ] && [ "$health_running" = 1 ] &&
+		   [ "$health_updated" -ge "$((now - 60))" ] && [ "$health_updated" -le "$((now + 5))" ] &&
+		   [ "$(jsonfilter -i /var/run/rozaneh/health.json -e '@.connected' 2>/dev/null)" = true ]; then connected=1; fi
+		conflict=0
+		rozaneh_proxy_conflict && conflict=1
+		json_init
+		json_add_boolean enabled "$([ "$(uci -q get rozaneh.main.enabled)" = 1 ] && echo 1 || echo 0)"
+		json_add_boolean lan_killswitch "$([ "$(uci -q get rozaneh.main.lan_killswitch)" = 1 ] && echo 1 || echo 0)"
+		json_add_boolean running "$running"
+		json_add_boolean lan_running "$lan_running"
+		json_add_boolean lan_ready "$lan_ready"
+		json_add_boolean connected "$connected"
+		json_add_boolean health_running "$health_running"
+		json_add_int health_updated "$health_updated"
+		json_add_string exit_ip "$(jsonfilter -i /var/run/rozaneh/health.json -e '@.exit_ip' 2>/dev/null)"
+		json_add_boolean conflict "$conflict"
+		json_add_string conflict_name "$conflict_name"
+		json_add_string singbox_path "$(rozaneh_find_singbox || true)"
+		json_add_string lan_missing "$missing"
+		json_add_string version "$(cat /usr/share/rozaneh/core.version 2>/dev/null || echo 0.1.0)"
+		json_add_string luci_version "$(cat /usr/share/rozaneh/luci.version 2>/dev/null || echo 0.1.0)"
+  json_add_string engine_version "$(/usr/bin/rozaneh -version-json 2>/dev/null | jsonfilter -e '@.engine_version')"
+		json_add_string architecture "$(uname -m)"
+		json_add_string manager "$(command -v apk >/dev/null 2>&1 && echo apk || echo opkg)"
+		json_add_string missing "$missing"
+		board=$(ubus call system board)
+		json_add_string model "$(echo "$board" | jsonfilter -e '@.model')"
+		json_add_string os "$(echo "$board" | jsonfilter -e '@.release.description')"
+		json_add_int uptime "$(cut -d. -f1 /proc/uptime)"
+		json_add_boolean installing "$([ -d /tmp/rozaneh-deps.lock ] && echo 1 || echo 0)"
+		json_add_string install_log "$(tail -4 /tmp/rozaneh-deps.log 2>/dev/null)"
+		json_dump
+		;;
+ paths)
+  updated=$(jsonfilter -i /var/run/rozaneh/paths.json -e '@.updated' 2>/dev/null)
+  now=$(date +%s)
+  case "$updated" in ''|*[!0-9]*) updated=0 ;; esac
+  services=$(ubus call service list '{"name":"rozaneh"}' 2>/dev/null)
+  if [ "$updated" -ge "$((now - 15))" ] && [ "$updated" -le "$((now + 5))" ] &&
+     echo "$services" | jsonfilter -e '@.rozaneh.instances.client.running' | grep -q true; then
+   cat /var/run/rozaneh/paths.json
+  else echo '{"established":false,"paths":[],"stale":true}'; fi
+  ;;
+	logs)
+		text=$(/usr/libexec/rozaneh/read-logs)
+		active=0
+		if [ "$(uci -q get rozaneh.main.enabled)" = 1 ] && ubus call service list '{"name":"rozaneh"}' | jsonfilter -e '@.rozaneh.instances.client.running' | grep -q true; then active=1; fi
+		json_init; json_add_string text "$text"; json_add_boolean active "$active"; json_dump
+		;;
+	clear_logs)
+		if /usr/libexec/rozaneh/read-logs /etc/rozaneh/recent.log clear; then reply 1 'Logs cleared.'; else reply 0 'Could not clear logs.'; fi
+		;;
+	diagnostic_logs)
+		text=$(
+			printf 'Rozaneh diagnostic report\nUTC: '; date -u '+%Y-%m-%dT%H:%M:%SZ'
+			printf 'Version: '; cat /usr/share/rozaneh/core.version
+			printf '\nMemory:\n'; free
+			printf '\nHealth:\n'; cat /var/run/rozaneh/health.json 2>/dev/null
+			for name in runtime.json paths.json traffic.json; do
+				printf '\n--- %s ---\n' "$name"
+				if [ -f "/var/run/rozaneh/$name" ]; then cat "/var/run/rozaneh/$name"
+				else cat "/etc/rozaneh/last-$name" 2>/dev/null; fi
+			done
+			printf '\nRecent service messages:\n'
+			/usr/libexec/rozaneh/read-logs 2>/dev/null | grep -viE 'encryption_key|password|secret|private.key'
+		)
+		json_init; json_add_string text "$text"; json_dump
+		;;
+	traffic)
+		if [ -s /var/run/rozaneh/traffic.json ]; then cat /var/run/rozaneh/traffic.json
+		elif [ -s /etc/rozaneh/traffic.json ]; then cat /etc/rozaneh/traffic.json
+		else echo '{"today":{"up":0,"down":0},"week":{"up":0,"down":0},"month":{"up":0,"down":0}}'; fi
+		;;
+	dependencies)
+		dependency_list
+		json_init; json_add_string missing "$missing"; json_dump
+		;;
+	control)
+		read -r input
+		json_load "$input" || { reply 0 'Invalid request'; exit 0; }
+		json_get_var action action
+		case "$action" in
+		killswitch_on|killswitch_off)
+			previous=$(uci -q get rozaneh.main.lan_killswitch); previous=${previous:-0}
+			value=0; [ "$action" != killswitch_on ] || value=1
+			uci set "rozaneh.main.lan_killswitch=$value" || { reply 0 'Could not change the kill switch.'; exit 0; }
+			if /usr/libexec/rozaneh/lan-firewall.sh >/dev/null 2>&1; then
+				uci commit rozaneh
+				reply 1 'Kill switch updated.'
+			else
+				uci set "rozaneh.main.lan_killswitch=$previous"
+				/usr/libexec/rozaneh/lan-firewall.sh >/dev/null 2>&1 || true
+				reply 0 'Could not change the kill switch.'
+			fi
+			;;
+		start|restart)
+			. /usr/libexec/rozaneh/dependencies.sh
+			if rozaneh_proxy_conflict; then
+				if [ "$conflict_name" = zirgozar ]; then
+					reply 0 'Zirgozar is on. Rozaneh will not start. Turn Zirgozar off first.'
+				else reply 0 'Another transparent proxy is active. Stop it before starting Rozaneh.'; fi
+				exit 0
+			fi
+			zone=$(uci -q get rozaneh.main.zone)
+			key=$(uci -q get rozaneh.main.encryption_key)
+			[ -n "$zone" ] && [ -n "$key" ] || { reply 0 'Save the CottenDNS domain and shared key first.'; exit 0; }
+			dependency_list
+			[ -z "$missing" ] || { reply 0 "Missing packages: $missing"; exit 0; }
+			if rozaneh_proxy_conflict; then
+				reply 0 'Another transparent proxy is active. Stop it before starting Rozaneh.'
+				exit 0
+			fi
+			uci set rozaneh.main.enabled=1; uci commit rozaneh
+			/etc/init.d/rozaneh enable
+			/etc/init.d/rozaneh restart >/dev/null 2>&1
+			code=$?; [ "$code" = 0 ] && reply 1 'Service started.' || reply 0 'Service could not start. Check logs.'
+			;;
+		stop)
+			uci set rozaneh.main.enabled=0; uci commit rozaneh
+			/etc/init.d/rozaneh stop >/dev/null 2>&1
+			reply 1 'Service stopped.'
+			;;
+		*) reply 0 'Unsupported action' ;;
+		esac
+		;;
+	test)
+		dependency_list
+		[ -z "$missing" ] || { reply 0 "Missing dependencies: $missing"; exit 0; }
+		listen=$(uci -q get rozaneh.main.listen)
+		[ -n "$listen" ] || listen=127.0.0.1:1088
+		case "$listen" in 0.0.0.0:*) listen="127.0.0.1:${listen##*:}" ;; esac
+		result=$(curl --fail --silent --show-error --socks5-hostname "$listen" --connect-timeout 8 --max-time 12 https://www.cloudflare.com/cdn-cgi/trace 2>&1)
+		code=$?
+		if [ "$code" = 0 ]; then
+			ip=$(echo "$result" | sed -n 's/^ip=//p' | head -1)
+			[ -n "$ip" ] && reply 1 "HTTPS tunnel verified. Exit IP: $ip" || reply 0 'Test returned an unexpected response.'
+		else reply 0 "$result"; fi
+		;;
+	sites)
+		read -r input
+		json_load "$input" || { reply 0 'Invalid request'; exit 0; }
+		json_get_var site site
+		case "$site" in reddit|instagram|x|all|'') /usr/libexec/rozaneh/probe-sites "${site:-all}" ;; *) reply 0 'Unknown site' ;; esac
+		;;
+	install_dependencies)
+		read -r input
+		json_load "$input" || { reply 0 'Invalid request'; exit 0; }
+		json_get_var scope scope
+		case "$scope" in base|lan|'') ;; *) reply 0 'Invalid scope'; exit 0 ;; esac
+		dependency_list
+		[ -n "$missing" ] || { reply 1 'All dependencies are installed.'; exit 0; }
+		if ! mkdir /tmp/rozaneh-deps.lock 2>/dev/null; then reply 0 'Dependency installation is already running.'; exit 0; fi
+		/usr/libexec/rozaneh/install-deps "${scope:-base}" > /tmp/rozaneh-deps.log 2>&1 < /dev/null &
+		reply 1 'Dependency installation started.'
+		;;
+	check_update|install_update|update_status)
+		case "$2" in check_update) /usr/libexec/rozaneh/update check ;; update_status) /usr/libexec/rozaneh/update status ;; install_update)
+    read -r input
+    json_load "$input" || { reply 0 'Invalid request'; exit 0; }
+    json_get_var scope scope
+    json_get_var force force
+    case "$force" in 1|true) force=1 ;; 0|false|'') force=0 ;; *) reply 0 'Invalid reinstall flag'; exit 0 ;; esac
+    case "$scope" in all|'') /usr/libexec/rozaneh/update start "${scope:-all}" "$force" ;; *) reply 0 'Invalid update scope' ;; esac
+    ;; esac
+		;;
+	*) reply 0 'Unknown method' ;;
+	esac
+	;;
+esac

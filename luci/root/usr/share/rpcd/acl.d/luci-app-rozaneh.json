@@ -1,0 +1,13 @@
+{
+  "luci-app-rozaneh": {
+    "description": "Manage Rozaneh",
+    "read": {
+      "ubus": { "rozaneh": ["status", "logs", "diagnostic_logs", "traffic", "paths", "dependencies", "update_status"] },
+      "uci": ["rozaneh"]
+    },
+    "write": {
+      "ubus": { "rozaneh": ["clear_logs", "control", "test", "sites", "install_dependencies", "check_update", "install_update"] },
+      "uci": ["rozaneh"]
+    }
+  }
+}

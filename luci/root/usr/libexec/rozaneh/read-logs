@@ -1,0 +1,85 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+# Preserve recent messages even when the runtime log no longer contains them.
+umask 077
+state=${1:-/etc/rozaneh/recent.log}
+active_file=${state}.active
+[ "$state" != /etc/rozaneh/recent.log ] || active_file=/var/run/rozaneh/recent.log
+mkdir -p "$(dirname "$active_file")" || exit 1
+lock=${active_file}.lock
+attempt=0
+while ! mkdir "$lock" 2>/dev/null; do
+ attempt=$((attempt + 1))
+ if [ "$attempt" -ge 3 ]; then
+  if [ -f "$active_file" ]; then cat "$active_file"; else cat "$state" 2>/dev/null; fi
+  [ "${2:-}" != clear ]
+  exit $?
+ fi
+ sleep 1
+done
+trap 'rmdir "$lock" 2>/dev/null' EXIT
+active=${ROZANEH_LOG_ACTIVE:-}
+if [ -z "$active" ]; then
+ active=0
+ if [ "$(uci -q get rozaneh.main.enabled 2>/dev/null)" = 1 ] &&
+    ubus call service list '{"name":"rozaneh"}' 2>/dev/null | jsonfilter -e '@.rozaneh.instances.client.running' 2>/dev/null | grep -q true; then active=1; fi
+fi
+limit=30
+[ "$active" != 1 ] || limit=0
+if [ "${2:-}" = clear ]; then
+ mkdir -p "$(dirname "$state")" || exit 1
+ logread 2>/dev/null | grep -E 'rozaneh|lan-run.sh' > "${state}.cleared"
+ : > "$state"
+ rm -f "$active_file"
+ exit 0
+fi
+work=$(mktemp -d /tmp/rozaneh-recent-logs.XXXXXX) || { cat "$state" 2>/dev/null; exit 0; }
+trap 'rm -f "$work/previous" "$work/current" "$work/merged"; rmdir "$work"; rmdir "$lock" 2>/dev/null' EXIT
+if [ -f "$active_file" ]; then cat "$active_file" > "$work/previous"
+else tail -30 "$state" 2>/dev/null > "$work/previous" || true; fi
+logread 2>/dev/null | grep -E 'rozaneh|lan-run.sh' > "$work/current"
+if [ -s "${state}.cleared" ]; then
+ marker=$(tail -1 "${state}.cleared")
+ awk -v marker="$marker" '{lines[NR]=$0;if($0==marker)cutoff=NR} END{for(i=cutoff+1;i<=NR;i++)print lines[i]}' "$work/current" > "$work/merged"
+ cat "$work/merged" > "$work/current"
+fi
+awk -v limit="$limit" '
+ FILENAME == ARGV[1] { old[++n]=$0; next }
+ { fresh[++m]=$0 }
+ END {
+  # A full system snapshot can already contain the saved history.
+  if (n && m>=n) {
+   for (end=n;end<=m;end++) {
+    if (fresh[end]!=old[n]) continue
+    same=1
+    for (i=1;i<=n;i++) if (old[i]!=fresh[end-n+i]) {same=0;break}
+    if (same) {n=0;break}
+   }
+  }
+  overlap=n<m?n:m
+  for (;overlap>0;overlap--) {
+   same=1
+   for (i=1;i<=overlap;i++) if (old[n-overlap+i]!=fresh[i]) {same=0;break}
+   if (same) break
+  }
+  total=n+m-overlap
+  for (i=1;i<=n;i++) if (!limit || i>total-limit) print old[i]
+  for (i=overlap+1;i<=m;i++) if (!limit || n+i-overlap>total-limit) print fresh[i]
+ }
+' "$work/previous" "$work/current" > "$work/merged"
+if [ "$active" = 1 ]; then
+ mkdir -p "$(dirname "$active_file")"
+ cp "$work/merged" "$active_file"
+fi
+tail -30 "$work/merged" > "$work/current"
+if ! cmp -s "$state" "$work/current"; then
+ if mkdir -p "$(dirname "$state")"; then
+  saved=$(mktemp "${state}.XXXXXX")
+  if [ -n "$saved" ]; then
+   if cat "$work/current" > "$saved"; then mv -f "$saved" "$state"; else rm -f "$saved"; fi
+  fi
+ fi
+fi
+[ "$active" = 1 ] || rm -f "$active_file"
+cat "$work/merged"

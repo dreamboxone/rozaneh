@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
 [Unit]
 Description=Soar DNS tunnel server
 After=network-online.target
@@ -7,8 +9,9 @@ Wants=network-online.target
 Type=simple
 User=soar
 Group=soar
+Environment=SOAR_ALLOW_PORTS=80,443,5222,5228
 EnvironmentFile=/etc/soar/server.env
-ExecStart=/opt/soar/soar-server -zone ${SOAR_ZONE} -key-file /etc/soar/server.key -listen 0.0.0.0:53
+ExecStart=/opt/soar/soar-server -zone ${SOAR_ZONE} -key-file /etc/soar/server.key -listen 0.0.0.0:53 -allow-ports ${SOAR_ALLOW_PORTS}
 Restart=on-failure
 RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE

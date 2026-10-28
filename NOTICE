@@ -9,3 +9,18 @@ Additional dependencies: golang.org/x/crypto and golang.org/x/sys.
 Their license texts are included in licenses/.
 
 This project is not an official Lantern distribution.
+
+Encrypted resolver transport support is adapted from WhiteDNS/CottenDNS,
+internal/resolvertransport/transport.go, revision 7db7b73658c791cce62300d29647e4d369d6e1e4.
+Copyright (c) 2026 Amin Mahmoudi, NullRoute1970, tajirax.
+MIT license and notices: licenses/CottenDNS-LICENSE.
+QUIC and HTTP/3 use quic-go and qpack; their license texts are in licenses/.
+
+The optional resilience engine in internal/tunnelengine is adapted from
+WhiteDNS/CottenDNS revision 7db7b73658c791cce62300d29647e4d369d6e1e4,
+itself derived from Lantern Soar v0.2.3 under Apache-2.0.
+See internal/tunnelengine/LICENSE and NOTICE.cottendns.txt.
+CottenDNS modifications and the FEC and DNS padding code retain their
+original notices; see licenses/CottenDNS-LICENSE.
+FEC uses klauspost/reedsolomon v1.14.1 and cpuid/v2 v2.3.0.
+See licenses/reedsolomon-LICENSE and licenses/cpuid-LICENSE.

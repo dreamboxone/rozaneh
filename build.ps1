@@ -1,16 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+param([string]$PythonBinary = 'python')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
-    go test ./...
-    if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
-    $env:CGO_ENABLED = '0'
-    $env:GOOS = 'linux'
-    $env:GOARCH = 'arm'
-    $env:GOARM = '7'
-    go build -trimpath -ldflags '-s -w' -o zoordns-linux-armv7 .
-    if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
-    Get-FileHash zoordns-linux-armv7 -Algorithm SHA256
-} finally {
-    Remove-Item Env:CGO_ENABLED,Env:GOOS,Env:GOARCH,Env:GOARM -ErrorAction SilentlyContinue
-    Pop-Location
-}
+    & $PythonBinary scripts/build-cotten.py --output prebuilt/arm_cortex-a7_neon-vfpv4/rozaneh --goarch arm --goarm 7 --test
+    if ($LASTEXITCODE -ne 0) { throw 'CottenDNS build or tests failed' }
+    Get-FileHash prebuilt/arm_cortex-a7_neon-vfpv4/rozaneh -Algorithm SHA256
+} finally { Pop-Location }

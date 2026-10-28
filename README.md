@@ -1,55 +1,33 @@
-# zoorDNS
+# Rozaneh
 
-A powerful DNS client for your router, powered by [Soar](https://github.com/getlantern/soar).
+OpenWrt DNS tunnel client powered by the pinned original [CottenDNS](https://github.com/WhiteDNS/CottenDNS) runtime.
 
 [راهنمای فارسی](README.fa.md)
 
-## Features
-
-- TCP SOCKS5, procd/UCI integration, and a dedicated unprivileged service user.
-- Persian/English LuCI, Vazirmatn throughout, light/dark mode, and the shared Zirgozar visual theme.
-- Instagram, Reddit and X URL tests through the tunnel. Green below 1000 ms, amber below 2000 ms, red at 2000 ms or above. HTTP status is available in the tooltip; a restricted HTTP response does not prove access to site content.
-- Upload/download/total payload usage in decimal GB, today/7-day/30-day views with UTC day boundaries. Totals survive service restarts; changed totals are checkpointed at most every five minutes and on graceful shutdown. A power failure can lose the latest checkpoint interval.
-- Router model, OpenWrt version and uptime.
-- Missing-dependency detection and installation inside LuCI.
-- Component updates from GitHub releases, selected for the router architecture and checked against SHA-256. Only changed components are downloaded; each component is a complete package, not a binary patch.
-
-This version provides a TCP SOCKS5 proxy on `127.0.0.1:1088`. It does not enable transparent whole-LAN routing or arbitrary application UDP. SOCKS authentication is not implemented.
+A compatible external Linux server, delegated DNS domain and shared server key are required. Soar public keys are not compatible. CottenMax and Normal use the same server credential when the server supports both modes. Max was tested under real router traffic for three minutes; network conditions vary.
 
 ## Install
 
-Download the core package matching `DISTRIB_ARCH` in `/etc/openwrt_release` and the `all` LuCI package. Use your firmware's package manager:
+Run on the router:
 
 ```sh
-# APK-based OpenWrt
-apk add --allow-untrusted ./zoordns-<version>-<arch>.apk ./luci-app-zoordns-<version>-all.apk
-
-# OPKG-based OpenWrt
-opkg install ./zoordns-<version>-<arch>.ipk ./luci-app-zoordns-<version>-all.ipk
+wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/rozaneh/main/scripts/install.sh && sh /tmp/rozaneh-install.sh
 ```
 
-Declared dependencies are installed by the package manager. Open **Services → zoorDNS**. Optional HTTPS-test/update tools can be installed with **Install missing dependencies**. Enter your Soar server's delegated DNS zone, public key and resolvers, save and apply, then start. The HTTPS test verifies the tunnel's exit IP. A compatible server and delegated zone are required; no public account is bundled. Keep the private key on the server.
+The installer detects OpenWrt package architecture and APK/OPKG, verifies the published SHA-256 and installs one package containing the engine and LuCI. Releases must contain manifest.json and the corresponding architecture asset.
 
-ARM, ARM64, MIPS, x86 and RISC-V targets are listed in `targets.json`. Go-unsupported architectures such as ARC and 32-bit PowerPC are not included. Cross-building does not establish hardware compatibility with every model.
+Alternatively copy the matching release APK/IPK into /tmp using MobaXterm and install with apk add --allow-untrusted or opkg install. Open Services → Rozaneh, enter the server domain and shared key, choose the compatible engine mode, install missing dependencies and enable the service. Stop competing transparent proxies first.
 
-## Build
+## Features and limits
 
-Go 1.25+ and Python 3 are required; dependencies are pinned in `go.mod`/`go.sum`.
+Persian/English LuCI, responsive light/dark interface, SOCKS5, LAN TCP routing, service control, connectivity checks, log copy/clear and traffic counters. Counters include engine transport traffic. Native advanced TOML settings are available; some legacy UI fields remain under migration. Normal ARQ/compression/duplication controls do not control Max. LAN routing does not support arbitrary UDP.
 
-```sh
-go test ./...
-sh scripts/build-engine.sh arm_cortex-a7_neon-vfpv4
-python3 scripts/package.py --arch arm_cortex-a7_neon-vfpv4 --format ipk
-# Both formats, using the host apk tool from an OpenWrt 25.12 SDK:
-python3 scripts/package.py --arch arm_cortex-a7_neon-vfpv4 --apk-tool /path/to/sdk/staging_dir/host/bin/apk
-```
+## Updates and builds
 
-Windows: `scripts/build-all.ps1` builds all listed binaries. Linux: run `scripts/build-engine.sh` for each target. Then `scripts/package.py --all --apk-tool ...` builds packages and `dist/manifest.json`. SDK Makefiles are provided at the root and in `luci/`; the core Makefile consumes `prebuilt/<architecture>/zoordns`.
+The displayed engine version uses the Gregorian release date, for example 2026.10.24. Full upstream release tags and immutable source revisions identify builds. The daily workflow checks published CottenDNS releases, builds and tests a complete matching Rozaneh package and publishes architecture assets together with LuCI.
 
-Publish packages and `manifest.json` as assets of the same GitHub release. The updater uses the latest non-prerelease release. SHA-256 protects against corruption; it is not an independent signature system. Configuration is retained and engine updates briefly interrupt the tunnel. `files/soar-server.service` and `files/server.env.example` provide server configuration examples.
+Use scripts/build-release.py to cross-build and scripts/package.py to package. The source pin is cotten-upstream.json. Python, Git and a compatible Go toolchain are required. Third-party licenses are bundled.
 
-## Validation and licenses
+## Remove
 
-The integration test transfers 128 KiB both ways through an authenticated DNS tunnel, verifies remote hostnames, exact byte counts and counter persistence. APK installation and live HTTPS through recursive resolvers have been tested on Google WiFi (Gale), ARMv7, OpenWrt 25.12.6. IPK archives and cross-built targets require further device testing.
-
-Core wrapper: Apache-2.0. LuCI and reused Zirgozar theme: AGPL-3.0-or-later. Vazirmatn: SIL OFL 1.1. Soar and all dependency licenses/notices are retained in `SOAR-LICENSE`, `NOTICE`, `licenses/` and `luci/`. This is an independent project, not an official Lantern distribution.
+Use apk del rozaneh or opkg remove rozaneh. Back up /etc/config/rozaneh and /etc/rozaneh if settings are needed later.

@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
+package client
+
+type RozanehPath struct {
+ Resolver string `json:"resolver"`
+ Transport string `json:"transport"`
+ Verified bool `json:"verified"`
+ Healthy bool `json:"healthy"`
+ Suspended bool `json:"suspended"`
+ RTT int64 `json:"rtt"`
+ Loss float64 `json:"loss"`
+ NameLen int `json:"name_len"`
+ AnswerLimit int `json:"answer_limit"`
+}
+
+// RozanehPaths uses the same lock order as resolverRuntimeSnapshot.
+func(c *Client) RozanehPaths() []RozanehPath {
+ c.mtuStateMu.Lock();defer c.mtuStateMu.Unlock()
+ if c.balancer!=nil {c.balancer.mu.Lock();defer c.balancer.mu.Unlock()}
+ paths:=make([]RozanehPath,0,len(c.connections))
+ var snap *balancerSnapshot
+ if c.balancer!=nil {snap=c.balancer.snapshot.Load()}
+ for _,conn:=range c.connections {
+  loss:=conn.DownloadMTULoss
+  rtt:=int64(conn.MTUResolveTime)
+  if snap!=nil {
+   if index,ok:=snap.indexByKey[conn.Key];ok&&index<len(snap.stats)&&snap.stats[index]!=nil {
+    stats:=snap.stats[index];stats.mu.RLock()
+    if stats.sent>0 {acked:=stats.acked;if acked>stats.sent{acked=stats.sent};loss=1-float64(acked)/float64(stats.sent)}
+    if stats.rttCount>0 {rtt=int64(stats.rttMicrosSum/stats.rttCount)*1000}
+    stats.mu.RUnlock()
+   }
+  }
+  paths=append(paths,RozanehPath{conn.ResolverLabel,c.activeTransport().String(),conn.UploadMTUBytes>0&&conn.DownloadMTUBytes>0,conn.IsValid&&!conn.Backup,!conn.IsValid,rtt,loss,conn.UploadMTUChars,conn.DownloadMTUBytes})
+ }
+ return paths
+}

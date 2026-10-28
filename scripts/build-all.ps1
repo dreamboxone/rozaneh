@@ -1,5 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
 param(
     [string]$GoBinary = 'go',
+    [string]$PythonBinary = 'python',
     [string[]]$Architectures = @()
 )
 $ErrorActionPreference = 'Stop'
@@ -10,6 +13,7 @@ foreach ($name in @('CGO_ENABLED','GOOS','GOARCH','GOARM','GOMIPS','GOMIPS64','G
 $built = @{}
 Push-Location $projectRoot
 try {
+    foreach ($name in @('GOOS','GOARCH','GOARM','GOMIPS','GOMIPS64','GOAMD64','GO386')) { [Environment]::SetEnvironmentVariable($name, $null) }
     foreach ($architecture in $Architectures) {
         foreach ($name in @('GOARM','GOMIPS','GOMIPS64','GOAMD64','GO386')) { [Environment]::SetEnvironmentVariable($name, $null) }
         $env:CGO_ENABLED = '0'; $env:GOOS = 'linux'
@@ -26,11 +30,20 @@ try {
             default { throw "Unsupported architecture: $architecture" }
         }
         $key = "$env:GOARCH-$env:GOARM"
-        $destination = Join-Path $projectRoot "prebuilt/$architecture/zoordns"
+        $destination = Join-Path $projectRoot "prebuilt/$architecture/rozaneh"
         New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
-        if ($built.ContainsKey($key)) { Copy-Item -LiteralPath $built[$key] -Destination $destination -Force }
+        if ($built.ContainsKey($key)) {
+            Copy-Item -LiteralPath $built[$key] -Destination $destination -Force
+            $sourceDirectory = Split-Path $built[$key] -Parent
+            $destinationDirectory = Split-Path $destination -Parent
+            Copy-Item -LiteralPath (Join-Path $sourceDirectory 'cotten-source.json') -Destination $destinationDirectory -Force
+            Copy-Item -LiteralPath (Join-Path $sourceDirectory 'engine-licenses') -Destination $destinationDirectory -Recurse -Force
+        }
         else {
-            & $GoBinary build -trimpath -ldflags '-s -w' -o $destination .
+            $buildArguments = @('scripts/build-cotten.py','--output',$destination,'--goarch',$env:GOARCH)
+            if ($env:GOARCH -eq 'arm') { $buildArguments += @('--goarm',$env:GOARM) }
+            if ($built.Count -eq 0) { $buildArguments += '--test' }
+            & $PythonBinary @buildArguments
             if ($LASTEXITCODE -ne 0) { throw "Build failed: $architecture" }
             $built[$key] = $destination
         }
