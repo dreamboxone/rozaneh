@@ -1,33 +1,97 @@
-# Rozaneh
+<div dir="rtl" align="right">
 
-OpenWrt DNS tunnel client powered by the pinned original [CottenDNS](https://github.com/WhiteDNS/CottenDNS) runtime.
+<p align="right"><img src="assets/server-required-fa.svg" alt="برای استفاده از این برنامه نیاز به سرور مجازی لینوکسی خارج از ایران دارید." width="1000"></p>
 
-[راهنمای فارسی](README.fa.md)
+# روزنه
 
-A compatible external Linux server, delegated DNS domain and shared server key are required. Soar public keys are not compatible. CottenMax and Normal use the same server credential when the server supports both modes. Max was tested under real router traffic for three minutes; network conditions vary.
+[English guide](README.en.md)
 
-## Install
+روزنه برنامه تونل DNS برای روترهای OpenWrt بر پایه موتور CottenDNS است. برای استفاده، علاوه بر روتر سازگار به سرور مجازی لینوکسی خارج از ایران، دامنه با واگذاری NS و کلید مشترک سرور نیاز دارید. راهنمای ساخت سرور در ادامه آمده است.
 
-Run on the router:
+## نصب مستقیم از گیتهاب با تشخیص خودکار معماری
+
+در MobaXterm یک اتصال SSH به IP روتر باز کنید و با کاربر `root` وارد شوید. دستور زیر را در ترمینال **روتر** اجرا کنید:
+
+<div dir="ltr" align="left">
 
 ```sh
 wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/rozaneh/main/scripts/install.sh && sh /tmp/rozaneh-install.sh
 ```
 
-The installer detects OpenWrt package architecture and APK/OPKG, verifies the published SHA-256 and installs one package containing the engine and LuCI. Releases must contain manifest.json and the corresponding architecture asset.
+</div>
 
-Alternatively copy the matching release APK/IPK into /tmp using MobaXterm and install with apk add --allow-untrusted or opkg install. Open Services → Rozaneh, enter the server domain and shared key, choose the compatible engine mode, install missing dependencies and enable the service. Stop competing transparent proxies first.
+اسکریپت معماری بسته OpenWrt را از `DISTRIB_ARCH` می خواند، مدیر بسته APK یا OPKG را تشخیص می دهد و بسته کامل مناسب را از آخرین انتشار پایدار دانلود می کند. SHA-256 فایل با فهرست انتشار تطبیق داده می شود و سپس نصب انجام می شود. موتور و رابط LuCI در یک بسته هستند. روتر باید به گیتهاب و مخزن بسته های OpenWrt دسترسی داشته باشد.
 
-## Features and limits
+**این دستور پس از انتشار اسکریپت روی شاخه اصلی و انتشار بسته ها همراه `manifest.json` در بخش Releases قابل استفاده است. فایل های محلی لپ تاپ با این دستور دانلود نمی شوند.**
 
-Persian/English LuCI, responsive light/dark interface, SOCKS5, LAN TCP routing, service control, connectivity checks, log copy/clear and traffic counters. Counters include engine transport traffic. Native advanced TOML settings are available; some legacy UI fields remain under migration. Normal ARQ/compression/duplication controls do not control Max. LAN routing does not support arbitrary UDP.
+## نصب با کپی فایل از طریق MobaXterm
 
-## Updates and builds
+۱. از [بخش Releases](https://github.com/dreamboxone/rozaneh/releases) بسته روزنه مناسب معماری روتر را دانلود کنید. برای دیدن معماری، این دستور را در SSH روتر اجرا کنید:
 
-The displayed engine version uses the Gregorian release date, for example 2026.10.24. Full upstream release tags and immutable source revisions identify builds. The daily workflow checks published CottenDNS releases, builds and tests a complete matching Rozaneh package and publishes architecture assets together with LuCI.
+<div dir="ltr" align="left">
 
-Use scripts/build-release.py to cross-build and scripts/package.py to package. The source pin is cotten-upstream.json. Python, Git and a compatible Go toolchain are required. Third-party licenses are bundled.
+```sh
+. /etc/openwrt_release
+echo "$DISTRIB_ARCH"
+```
 
-## Remove
+</div>
 
-Use apk del rozaneh or opkg remove rozaneh. Back up /etc/config/rozaneh and /etc/rozaneh if settings are needed later.
+۲. اگر روتر مدیر بسته `apk` دارد فایل `.apk` و اگر `opkg` دارد فایل `.ipk` بگیرید. نام معماری باید با خروجی دستور بالا یکسان باشد.
+
+۳. در پنل انتقال فایل MobaXterm مسیر `/tmp` روتر را باز کنید و فایل دانلود شده را در آن بگذارید. اگر پنل SFTP باز نشد، در تنظیمات نشست، روش SSH-browser را روی SCP بگذارید.
+
+۴. در ترمینال روتر، فقط دستور مناسب مدیر بسته خود را اجرا کنید. مثال زیر برای نسخه ۱.۰.۰ ویرایش ۱ و معماری `arm_cortex-a7_neon-vfpv4` است؛ نام فایل را با فایل خود عوض کنید:
+
+<div dir="ltr" align="left">
+
+```sh
+# APK
+apk add --allow-untrusted /tmp/rozaneh-1.0.0-r1-arm_cortex-a7_neon-vfpv4.apk
+
+# OPKG
+opkg update
+opkg install /tmp/rozaneh-1.0.0-r1-arm_cortex-a7_neon-vfpv4.ipk
+```
+
+</div>
+
+وابستگی های پایه با مدیر بسته نصب می شوند. سپس به **Services → Rozaneh** بروید. پیش از محدودیت اینترنت، نیازمندی های باقی مانده را از بخش به روزرسانی نصب کنید. دامنه تونل، کلید عمومی و ریزالورها را تنظیم و ذخیره کنید. ابتدا زیرگذر را خاموش و سپس کلید اصلی روزنه را روشن کنید.
+
+## حذف برنامه
+
+در SSH روتر فقط دستور مناسب مدیر بسته خود را اجرا کنید:
+
+<div dir="ltr" align="left">
+
+```sh
+# APK
+apk del rozaneh
+
+# OPKG
+opkg remove rozaneh
+```
+
+</div>
+
+حذف بسته، سرویس روزنه را متوقف می کند. این دستور برای حذف بسته است؛ برای پاک کردن تنظیمات باقی مانده، ابتدا از تنظیمات مورد نیاز خود پشتیبان بگیرید.
+
+## راه اندازی CottenDNS
+
+روی سرور از نسخه سازگار [CottenDNS](https://github.com/WhiteDNS/CottenDNS) استفاده کنید. دامنه باید با رکورد NS به سرور واگذار شود و پورت های UDP و TCP شماره 53 باز باشند. دامنه و کلید مشترک سرور را در بخش سرور روزنه وارد کنید؛ کلید عمومی Soar جایگزین این کلید نیست.
+
+برای سرور دارای پشتیبانی Max، حالت CottenMax را انتخاب کنید. حالت Normal نیز در دسترس است. تنظیمات این دو حالت یکسان نیستند؛ گزینه های ARQ و تکرار بسته Normal روی Max اثر ندارند. در ازمایش روتر، Max سه دقیقه با ترافیک واقعی بررسی شده است؛ این ازمایش تضمین پایداری روی همه شبکه ها نیست.
+
+## امکانات و محدودیت ها
+
+موتور اصلی CottenDNS با رابط فارسی و انگلیسی، حالت روشن و تیره، گزارش ها با کپی و پاک کردن، پراکسی SOCKS5، مسیریابی شبکه و کنترل سرویس در یک بسته نصب می شود. تنظیمات پیشرفته TOML موتور نیز در دسترس است. بعضی گزینه های رابط قدیمی هنوز در حال انتقال هستند. مسیریابی فعلی شبکه برای TCP است.
+
+## نسخه موتور و بروزرسانی
+
+نسخه موتور در رابط با تاریخ میلادی مانند `2026.10.24` نمایش داده می شود. تگ کامل انتشار و شناسه سورس برای تشخیص دقیق نسخه نگهداری می شوند. موتور همراه بسته کامل روزنه و رابط LuCI بروزرسانی می شود. گردش کار روزانه گیتهاب نسخه منتشرشده CottenDNS را بررسی و پس از بیلد و تست، بسته جدید روزنه را منتشر می کند.
+
+## ساخت
+
+از `scripts/build-release.py` برای ساخت معماری های پشتیبانی شده و `scripts/package.py` برای بسته بندی استفاده کنید. نسخه منبع در `cotten-upstream.json` قفل شده است. بیلد به Python، Git و Go سازگار با موتور نیاز دارد؛ فایل های مجوز موتور و وابستگی ها همراه بسته نگهداری می شوند.
+
+</div>
