@@ -64,9 +64,9 @@ return view.extend({
   o = s.option(form.Flag, 'discover', tr('Discover resolvers', 'کشف ریزالورهای بیشتر')); o.rmempty = false;
   plaintextOption(o);
   o.description = zui.optionDescription('discover');
-  o = s.option(form.ListValue, 'country', tr('Discovery region', 'منطقه کشف'));
+  o = s.option(form.ListValue, 'country', tr('Search country', 'کشور جستجو'));
   plaintextOption(o);
-  o.description = zui.optionDescription('country');
+  o.description = tr('Select the country whose resolver addresses are searched. This does not change the tunnel server location.', 'کشوری که آدرس های ریزالور در آن جستجو می شوند. این انتخاب محل سرور تونل را تغییر نمی دهد.');
   o.value('IR',tr('Iran','ایران'));o.value('RU',tr('Russia','روسیه'));o.value('CN',tr('China','چین'));o.default='IR';o.rmempty=false;
   o = s.option(form.Value, 'discovery_candidates', tr('Extra discovery candidates', 'ریزالورهای اضافی برای کشف')); o.placeholder='1.1.1.1:53,9.9.9.9:53';
   plaintextOption(o);
@@ -84,13 +84,13 @@ return view.extend({
   // Iran shortlist: pinned Soar data/resolvers/ir.txt, KevinNet snapshot 2026-05-26.
   // Attribution and MIT license: licenses/Soar-resolver-data-LICENSE.
   var candidateSets = [
-   ['iran',tr('Candidates inside Iran','نامزدهای داخل ایران'),['185.212.51.144:53','46.100.40.59:53','5.202.171.124:53','93.114.104.185:53','2.188.162.78:53','87.107.82.213:53'],tr('Historical candidates from the bundled Iran list, not verified on your connection. Availability depends on the operator and restrictions.','نامزدهای فهرست پیشین ایران هستند و روی اتصال شما هنوز آزمایش نشده‌اند. دسترسی به اپراتور و محدودیت‌ها بستگی دارد.')],
+   ['iran',tr('Suggested Iranian resolvers','ریزالورهای پیشنهادی ایران'),['185.212.51.144:53','46.100.40.59:53','5.202.171.124:53','93.114.104.185:53','2.188.162.78:53','87.107.82.213:53'],tr('Historical candidates from the bundled Iran list, not verified on your connection. Availability depends on the operator and restrictions.','نامزدهای فهرست پیشین ایران هستند و روی اتصال شما هنوز آزمایش نشده‌اند. دسترسی به اپراتور و محدودیت‌ها بستگی دارد.')],
    ['public',tr('Public resolvers','ریزالورهای عمومی'),['1.1.1.1:53','1.0.0.1:53','8.8.8.8:53','8.8.4.4:53','9.9.9.9:53','149.112.112.112:53'],tr('Cloudflare, Google and Quad9. Public resolvers may be unreachable during severe restrictions. A normal DNS reply does not prove tunnel connectivity.','کلادفلر، گوگل و کواد۹. در محدودیت شدید ممکن است در دسترس نباشند. پاسخ عادی DNS به معنی کار کردن تونل نیست.')]
   ];
   candidateSets.forEach(function(set) {
    var button = s.option(form.Button,'_candidates_'+set[0],set[1]);
    plaintextOption(button);
-   button.inputtitle=tr('Add suggested addresses','افزودن آدرس‌های پیشنهادی');
+   button.inputtitle=tr('Add','افزودن');
    button.inputstyle='apply';
    button.description=E('span',{},[set[3],E('br'),E('bdi',{dir:'ltr',style:'overflow-wrap:anywhere'},set[2].join(', '))]);
    button.onclick=function(){addCandidates(set[2]);};
