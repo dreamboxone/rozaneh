@@ -30,14 +30,118 @@
 
 
 <p align="center">
-  <a href="#install">⬇️ نصب</a> · <a href="#manual-install">📂 نصب دستی</a> · <a href="#remove">🗑️ حذف</a> · <a href="#server">🌐 سرور</a> · <a href="#features">✨ امکانات</a> · <a href="#support">💚 حمایت</a>
+  <a href="#server">🌐 ۱. سرور و کلید</a> · <a href="#install">⬇️ ۲. نصب روتر</a> · <a href="#manual-install">📂 نصب دستی</a> · <a href="#remove">🗑️ حذف</a> · <a href="#features">✨ امکانات</a> · <a href="#support">💚 حمایت</a>
 </p>
+
+<a id="server"></a>
+
+## 🌐 ۱. ابتدا سرور را راه اندازی کنید
+
+**پیش از نصب روزنه روی روتر، یک سرور مجازی خارج از ایران با Ubuntu 24.04 LTS یا جدیدتر، IP عمومی و دسترسی root یا sudo آماده کنید.** دستورهای این مرحله برای ترمینال سرور هستند، نه روتر OpenWrt.
+
+### ۱.۱. دامنه را به سرور وصل کنید
+
+در پنل DNS دامنه خود این دو رکورد را بسازید. این نمونه برای `example.com` است؛ دامنه و IP را با اطلاعات واقعی خود جایگزین کنید:
+
+| نوع | نام در پنل دامنه | مقدار | حالت |
+|---|---|---|---|
+| A | `ns-tunnel` | IP عمومی سرور | فقط DNS؛ ابر نارنجی خاموش |
+| NS | `tunnel` | `ns-tunnel.example.com` | واگذاری زیردامنه به سرور |
+
+دامنه تونل در این نمونه `tunnel.example.com` است. IP نمونه یا آدرس عادی سایت را به جای آن وارد نکنید. پورت **53 برای هر دو UDP و TCP** باید در فایروال شرکت میزبان و فایروال خود سرور باز باشد. سرویس دیگری نباید این پورت را اشغال کرده باشد.
+
+در MobaXterm به IP سرور وصل شوید و روی **سرور Ubuntu** اجرا کنید:
+
+<div dir="ltr" align="left">
+
+```bash
+sudo apt update
+sudo apt install -y curl ca-certificates dnsutils
+sudo ss -lntup | grep ':53 '
+dig +short A ns-tunnel.example.com
+dig +short NS tunnel.example.com
+```
+
+</div>
+
+خروجی A باید IP سرور و خروجی NS باید نام `ns-tunnel.example.com` باشد. اگر پورت 53 اشغال است، پیش از نصب تداخل آن سرویس را برطرف کنید. اگر UFW فعال است، روی سرور اجرا کنید:
+
+<div dir="ltr" align="left">
+
+```bash
+sudo ufw allow 53/udp
+sudo ufw allow 53/tcp
+```
+
+</div>
+
+### ۱.۲. نصب CottenDNS روی Ubuntu
+
+این دستورها را روی **سرور** اجرا کنید. نصب در `/opt/cottendns` انجام می شود و نسخه سازگار با موتور فعلی روزنه انتخاب می شود:
+
+<div dir="ltr" align="left">
+
+```bash
+sudo install -d -m 755 /opt/cottendns
+cd /opt/cottendns
+sudo curl -fL https://raw.githubusercontent.com/WhiteDNS/CottenDNS/main/server_linux_install.sh -o server_linux_install.sh
+sudo bash server_linux_install.sh --version v2026.10.24.183015-7db7b73
+```
+
+</div>
+
+وقتی نصب کننده دامنه را درخواست کرد، **دامنه تونل واگذارشده** مانند `tunnel.example.com` را وارد کنید. نصب کننده نسخه مناسب معماری سرور را دریافت و سرویس `cottendns` را راه اندازی می کند. این روش برای سرور مستقل است؛ اگر سرور را با CottenRouter مدیریت می کنید، از روش بروزرسانی خود CottenRouter استفاده کنید.
+
+### ۱.۳. سلامت سرور و دریافت کلید
+
+پس از نصب روی **سرور** اجرا کنید. بررسی سلامت تا ۱۰ نوبت تکرار می شود تا سرویس فرصت آماده شدن داشته باشد:
+
+<div dir="ltr" align="left">
+
+```bash
+sudo systemctl is-active cottendns
+for i in $(seq 1 10); do
+  curl -fsS --max-time 2 http://127.0.0.1:9090/healthz && break
+  sleep 1
+done
+sudo ss -lntup | grep -E ':(53|9090)[[:space:]]'
+sudo cat /opt/cottendns/encrypt_key.txt
+```
+
+</div>
+
+وضعیت سرویس باید `active` و پاسخ سلامت `ok` باشد. در صورت خطا، پیش از ادامه نصب روتر، لاگ را بررسی کنید:
+
+<div dir="ltr" align="left">
+
+```bash
+sudo journalctl -u cottendns -n 60 --no-pager
+```
+
+</div>
+
+**کلید تولیدشده در `/opt/cottendns/encrypt_key.txt` روی سرور قرار دارد.** کل متن کلید را بدون فاصله و خط اضافی کپی و محرمانه نگهداری کنید. برای CottenMax باید در لاگ سرور پیام پشتیبانی از Normal و CottenMax دیده شود؛ هر دو از همان دامنه و کلید استفاده می کنند.
+
+### 🔑 این کلید را کجای روتر ذخیره کنیم؟
+
+پس از نصب روزنه در مرحله بعد، در پنل روتر به **Services → Rozaneh → سرور** بروید:
+
+| گزینه در روزنه | چه چیزی وارد شود؟ |
+|---|---|
+| **دامنه تونل** | همان دامنه مرحله اول؛ مانند `tunnel.example.com` |
+| **کلید مشترک سرور** | متن فایل `/opt/cottendns/encrypt_key.txt` سرور |
+
+روی **ذخیره و اعمال** بزنید. برنامه کلید را در گزینه `encryption_key` بخش `main` فایل `/etc/config/rozaneh` روی روتر ذخیره می کند؛ لازم نیست فایل کلید سرور را در پوشه `/tmp` روتر کپی کنید. این کلید، رمز ورود SSH یا کلید عمومی Soar نیست.
+
+برای اتصال Max، در **تنظیمات دیگر → حالت موتور** گزینه **CottenMax** و در بخش DNS روش اتصال **خودکار** را انتخاب کنید. در هر دو حالت Normal و Max، کلید و دامنه یکسان هستند. [راهنمای اصلی نصب سرور CottenDNS](https://github.com/WhiteDNS/CottenDNS#step-2--prepare-the-server)
+
+---
 
 <a id="install"></a>
 
-## ⬇️ نصب مستقیم از گیتهاب با تشخیص خودکار معماری
+## ⬇️ ۲. نصب روزنه روی روتر با تشخیص خودکار معماری
 
-در MobaXterm یک اتصال SSH به IP روتر باز کنید و با کاربر `root` وارد شوید. دستور زیر را در ترمینال **روتر** اجرا کنید:
+پس از آماده شدن سرور و نگهداری کلید، در MobaXterm یک اتصال SSH به IP روتر باز کنید و با کاربر `root` وارد شوید. دستور زیر را در ترمینال **روتر** اجرا کنید:
 
 <div dir="ltr" align="left">
 
@@ -53,7 +157,7 @@ wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/ro
 
 <a id="manual-install"></a>
 
-## 📂 نصب با کپی فایل از طریق MobaXterm
+## 📂 روش جایگزین مرحله ۲: نصب با MobaXterm
 
 ۱. از [بخش Releases](https://github.com/dreamboxone/rozaneh/releases) بسته روزنه مناسب معماری روتر را دانلود کنید. برای دیدن معماری، این دستور را در SSH روتر اجرا کنید:
 
@@ -89,7 +193,7 @@ opkg install /tmp/rozaneh-1.0.0-r1-arm_cortex-a7_neon-vfpv4.ipk
 
 <a id="remove"></a>
 
-## 🗑️ حذف برنامه
+## 🗑️ ۳. حذف برنامه از روتر
 
 در SSH روتر فقط دستور مناسب مدیر بسته خود را اجرا کنید:
 
@@ -106,14 +210,6 @@ opkg remove rozaneh
 </div>
 
 حذف بسته، سرویس روزنه را متوقف می کند. این دستور برای حذف بسته است؛ برای پاک کردن تنظیمات باقی مانده، ابتدا از تنظیمات مورد نیاز خود پشتیبان بگیرید.
-
-<a id="server"></a>
-
-## 🌐 راه اندازی CottenDNS
-
-روی سرور از نسخه سازگار [CottenDNS](https://github.com/WhiteDNS/CottenDNS) استفاده کنید. دامنه باید با رکورد NS به سرور واگذار شود و پورت های UDP و TCP شماره 53 باز باشند. دامنه و کلید مشترک سرور را در بخش سرور روزنه وارد کنید؛ کلید عمومی Soar جایگزین این کلید نیست.
-
-برای سرور دارای پشتیبانی Max، حالت CottenMax را انتخاب کنید. حالت Normal نیز در دسترس است. تنظیمات این دو حالت یکسان نیستند؛ گزینه های ARQ و تکرار بسته Normal روی Max اثر ندارند. در ازمایش روتر، Max سه دقیقه با ترافیک واقعی بررسی شده است؛ این ازمایش تضمین پایداری روی همه شبکه ها نیست.
 
 <a id="features"></a>
 
