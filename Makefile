@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rozaneh
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 PKG_LICENSE:=Apache-2.0 AGPL-3.0-or-later MIT BSD-3-Clause OFL-1.1
 PKG_LICENSE_FILES:=LICENSE SOAR-LICENSE luci/LICENSE licenses/CottenDNS-LICENSE licenses/quic-go-LICENSE licenses/qpack-LICENSE licenses/Go-LICENSE luci/root/www/luci-static/resources/rozaneh/fonts/OFL.txt
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
