@@ -34,12 +34,16 @@ def main():
         else:
             run('git','clone',lock['repository'],str(source))
         run('git','checkout','--detach',lock['revision'],cwd=source)
+        for patch in sorted((ROOT/'cotten-adapter/patches').glob('*.patch')):
+            run('git','apply','--check',str(patch),cwd=source)
+            run('git','apply',str(patch),cwd=source)
         shutil.copytree(ROOT/'cotten-adapter',source/'cmd/rozaneh',ignore=shutil.ignore_patterns('go.mod','go.sum','overlay'))
         shutil.copyfile(ROOT/'cotten-adapter/overlay/client_snapshot.go.in',source/'internal/client/rozaneh_snapshot.go')
         shutil.copyfile(ROOT/'traffic.go',source/'cmd/rozaneh/traffic.go')
         env={**os.environ,'CGO_ENABLED':'0'}
         if args.test:
             test_env={key:value for key,value in env.items() if key not in ('GOOS','GOARCH','GOARM','GOAMD64','GOMIPS','GOMIPS64')}
+            run('go','test','-race','-count=100','-run=^TestARQ_ClientGracefulCloseWriteFailureQueuesCloseWrite$','-timeout=180s','./internal/arq',cwd=source,env={**test_env,'CGO_ENABLED':'1'})
             run('go','test','-race','-timeout=180s','./internal/client','./internal/arq','./internal/config','./cmd/rozaneh',cwd=source,env={**test_env,'CGO_ENABLED':'1'})
         env.update(GOOS='linux',GOARCH=args.goarch)
         if args.goarch=='arm':env['GOARM']=args.goarm

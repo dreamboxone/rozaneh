@@ -1,0 +1,19 @@
+--- a/internal/arq/arq_test.go
++++ b/internal/arq/arq_test.go
+@@ -1961,7 +1961,6 @@
+ 
+ 	conn := newCloseOnWriteConn()
+ 	a := NewARQ(1, 1, enqueuer, conn, 1000, newTestLogger(t), cfg)
+-	a.Start()
+ 	defer a.Close("test end", CloseOptions{Force: true})
+ 
+ 	a.MarkCloseReadReceived()
+@@ -1969,6 +1968,8 @@
+ 	if !a.ReceiveData(0, []byte("late inbound chunk after local app died")) {
+ 		t.Fatal("expected inbound data to be accepted before writer failure handling")
+ 	}
++	// Start workers only after the pending inbound payload prevents EOF finalization.
++	a.Start()
+ 
+ 	select {
+ 	case <-conn.writeCh:
