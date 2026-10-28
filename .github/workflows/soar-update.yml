@@ -84,7 +84,7 @@ jobs:
           python scripts/cotten-release.py verify --state "$RUNNER_TEMP/cotten-state.json" --output dist/release
           mkdir -p release-source
           cp "$RUNNER_TEMP/cotten-state.json" release-source/state.json
-          git diff --binary -- cotten-upstream.json Makefile scripts/package.py > release-source/source.patch
+          git diff --binary -- cotten-upstream.json Makefile scripts/package.py README.md README.fa.md README.en.md > release-source/source.patch
       - uses: actions/upload-artifact@v4
         if: steps.check.outputs.changed == 'true'
         with:
@@ -141,7 +141,7 @@ jobs:
           subprocess.run(['git', 'apply', str(root / 'release-source/source.patch')], check=True)
           subprocess.run(['git', 'config', 'user.name', 'Release maintenance'], check=True)
           subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
-          subprocess.run(['git', 'add', 'cotten-upstream.json', 'Makefile', 'scripts/package.py'], check=True)
+          subprocess.run(['git', 'add', 'cotten-upstream.json', 'Makefile', 'scripts/package.py', 'README.md', 'README.fa.md', 'README.en.md'], check=True)
           subprocess.run(['git', 'commit', '-m', 'Update CottenDNS to ' + state['engine'] + ' and release ' + state['package_version']], check=True)
           subprocess.run(['git', 'tag', state['tag']], check=True)
           import os

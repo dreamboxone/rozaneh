@@ -65,7 +65,7 @@ return view.extend({
    ]);
   }
   function state(component){
-   return component.available&&component.latest?chip((fa?'← ':'→ ')+zui.versionText(component.latest),'info'):E('span',{'class':'mk-muted'},component.latest?tr('Up to date','به‌روز است'):tr('Not checked','بررسی نشده'));
+   return component.available&&component.latest?chip(fa?zui.versionText(component.latest)+' ←':'→ '+zui.versionText(component.latest),'info'):E('span',{'class':'mk-muted'},component.latest?tr('Up to date','به‌روز است'):tr('Not checked','بررسی نشده'));
   }
   function engineVersion(value){
    if(!value||value==='unknown')return tr('Unknown','نامشخص');

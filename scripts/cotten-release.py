@@ -68,6 +68,12 @@ def main():
     makefile.write_text(re.sub(r'PKG_RELEASE:=\d+','PKG_RELEASE:='+str(int(match[2])+1),text))
     lock.update(revision=state['revision'],release=state['tag'],application_version=version)
     lock_path.write_text(json.dumps(lock,indent=2)+'\n')
+    for name in ('README.md','README.fa.md','README.en.md'):
+        guide=ROOT/name
+        if guide.exists():
+            text=guide.read_text(encoding='utf-8')
+            text=re.sub(r'(--version\s+)v\d{4}\.\d{2}\.\d{2}\.\d{6}-[0-9a-f]+',lambda match:match[1]+state['tag'],text)
+            guide.write_text(text,encoding='utf-8')
     state.update(upstream_tag=state['tag'],upstream_url=state['url'],engine=state['tag'],package_version=version,tag='v'+version)
     args.state.write_text(json.dumps(state,indent=2)+'\n')
 

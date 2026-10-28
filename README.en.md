@@ -20,7 +20,7 @@ wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/ro
 
 The installer detects OpenWrt package architecture and APK/OPKG, verifies the published SHA-256 and installs one package containing the engine and LuCI. Releases must contain manifest.json and the corresponding architecture asset.
 
-Alternatively copy the matching release APK/IPK into /tmp using MobaXterm and install with apk add --allow-untrusted or opkg install. Open Services → Rozaneh, enter the server domain and shared key, choose the compatible engine mode, install missing dependencies and enable the service. Stop competing transparent proxies first.
+Alternatively copy the matching release APK/IPK into /tmp using [MobaXterm](https://mobaxterm.mobatek.net/download-home-edition.html) and install with apk add --allow-untrusted or opkg install. Open Services → Rozaneh, enter the server domain and shared key, choose the compatible engine mode, install missing dependencies and enable the service. Stop competing transparent proxies first.
 
 ## Features and limits
 

@@ -117,8 +117,8 @@
 .mk.mk-dark .cbi-tabmenu>li>a:focus-visible{outline:3px solid #a5b4fc;outline-offset:2px}
 
 .mk .mk-hero .zd-logo{width:80px;height:80px}
-.mk .cbi-value-title.zd-has-help{display:flex!important;align-items:baseline;gap:4px}
-.mk .zd-help-label{min-width:0}
+.mk .cbi-value-title.zd-has-help{display:block!important}
+.mk .zd-help-label{display:inline;min-width:0}
 .mk .zd-switches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:auto;padding-top:16px}
 .mk .zd-switches .zd-main-switch{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:12px;margin:0;padding:0;min-width:0;font-size:12px}
 .mk .zd-kill-control{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:12px;font-size:12px}
@@ -133,7 +133,7 @@
 .mk .mk-hero-controls .mk-seg .mk-btn{min-width:0;min-height:44px;justify-content:center;white-space:normal}
 .mk .mk-hero-controls .mk-language-column{flex:0 0 auto;min-width:0}
 .mk .mk-hero-controls select.mk-language{flex:none!important;width:auto!important;min-width:118px;height:52px!important;min-height:52px!important;box-sizing:border-box}
-.mk .zd-option-help{display:inline-flex;position:relative;top:-1.25em;align-self:flex-start;flex:0 0 auto;align-items:center;justify-content:center;width:16px;height:16px;min-width:16px;min-height:16px;margin:0;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:#3b82f6;font:700 11px/1 Arial,sans-serif!important;cursor:pointer}
+.mk .zd-option-help{display:inline-flex;position:relative;top:-.4em;vertical-align:baseline;align-self:flex-start;flex:0 0 auto;align-items:center;justify-content:center;width:16px;height:16px;min-width:16px;min-height:16px;margin:0;margin-inline-start:4px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:#3b82f6;font:700 11px/1 Arial,sans-serif!important;cursor:pointer}
 .mk[dir=rtl] .zd-option-help{width:18px;height:18px;min-width:18px;min-height:18px;font-size:13px!important;font-weight:900!important;text-shadow:0 0 .35px currentColor}
 .mk .zd-runtime-log[dir=rtl]{direction:rtl;text-align:right;unicode-bidi:plaintext}
 .mk .zd-runtime-log[dir=ltr]{direction:ltr;text-align:left}
