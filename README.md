@@ -85,7 +85,7 @@ sudo ufw allow 53/tcp
 sudo install -d -m 755 /opt/cottendns
 cd /opt/cottendns
 sudo curl -fL https://raw.githubusercontent.com/WhiteDNS/CottenDNS/main/server_linux_install.sh -o server_linux_install.sh
-sudo bash server_linux_install.sh --version v2026.11.03.161534-be99443
+sudo bash server_linux_install.sh --version v2026.11.04.181141-ac8e86e
 ```
 
 </div>

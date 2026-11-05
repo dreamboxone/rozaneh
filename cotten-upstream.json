@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/WhiteDNS/CottenDNS.git",
-  "release": "v2026.11.03.161534-be99443",
-  "revision": "be99443db5c6908ec68f572809120e71c2ce33e0",
+  "release": "v2026.11.04.181141-ac8e86e",
+  "revision": "ac8e86ed83a5006ab320468daaebe759d9574da6",
   "mode": "legacy",
-  "application_version": "1.0.0-r8"
+  "application_version": "1.0.0-r9"
 }
