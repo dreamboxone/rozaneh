@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--state',type=Path,required=True)
     parser.add_argument('--output',type=Path)
     parser.add_argument('--force',action='store_true')
+    parser.add_argument('--publish-tag',help='build an already tagged Rozaneh version')
     args=parser.parse_args()
     lock_path=ROOT/'cotten-upstream.json'
     lock=json.loads(lock_path.read_text())
@@ -49,8 +50,21 @@ def main():
                 if hashlib.sha256((args.output/name).read_bytes()).hexdigest()!=asset['sha256']:raise RuntimeError('Asset checksum mismatch')
         return
     if args.command=='check':
-        state=latest();state['changed']=args.force or state['revision']!=lock['revision'] or state['tag']!=lock.get('release')
-        state['base_sha']=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+        if args.publish_tag:
+            if args.force or not re.fullmatch(r'v\d+\.\d+\.\d+-r\d+',args.publish_tag):
+                raise RuntimeError('Specify a valid release tag without --force')
+            ref='refs/tags/'+args.publish_tag
+            sha=subprocess.check_output(['git','rev-parse',ref+'^{commit}'],text=True).strip()
+            subprocess.run(['git','merge-base','--is-ancestor',sha,'HEAD'],check=True)
+            pinned=json.loads(subprocess.check_output(['git','show',sha+':cotten-upstream.json'],text=True))
+            if 'v'+pinned['application_version']!=args.publish_tag:
+                raise RuntimeError('Tag does not match the pinned package version')
+            state={'tagged':True,'changed':True,'base_sha':sha,'tag':args.publish_tag,
+                   'package_version':pinned['application_version'],'engine':pinned['release'],
+                   'upstream_url':'https://github.com/WhiteDNS/CottenDNS/releases/tag/'+pinned['release']}
+        else:
+            state=latest();state['changed']=args.force or state['revision']!=lock['revision'] or state['tag']!=lock.get('release')
+            state['base_sha']=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
         args.state.write_text(json.dumps(state,indent=2)+'\n')
         if os.environ.get('GITHUB_OUTPUT'):
             with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('changed='+str(state['changed']).lower()+'\n')

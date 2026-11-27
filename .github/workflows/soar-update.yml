@@ -12,6 +12,10 @@ on:
         description: Build a complete release even if the engine commit is unchanged
         type: boolean
         default: false
+      publish_tag:
+        description: Rebuild and publish an existing Rozaneh tag on the default branch
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -31,6 +35,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -39,10 +44,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE_BUILD: ${{ inputs.force_build || false }}
+          RELEASE_TAG: ${{ inputs.publish_tag }}
         run: |
           args=()
           if [ "$FORCE_BUILD" = true ]; then args+=(--force); fi
+          if [ -n "$RELEASE_TAG" ]; then args+=(--publish-tag "$RELEASE_TAG"); fi
           python scripts/cotten-release.py check --state "$RUNNER_TEMP/cotten-state.json" "${args[@]}"
+          if [ -n "$RELEASE_TAG" ]; then git checkout --detach "refs/tags/$RELEASE_TAG"; fi
       - uses: actions/setup-go@v5
         if: steps.check.outputs.changed == 'true'
         with:
@@ -53,7 +61,7 @@ jobs:
         with:
           node-version: '22'
       - name: Prepare dependency and package revision
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' && !inputs.publish_tag
         run: |
           python scripts/cotten-release.py prepare --state "$RUNNER_TEMP/cotten-state.json"
       - name: Test and cross-build all engines
@@ -117,14 +125,18 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           python - <<'PY'
-          import hashlib, json, pathlib, re, subprocess
+          import hashlib, json, os, pathlib, re, subprocess
           root = pathlib.Path('release-payload')
           state = json.loads((root / 'release-source/state.json').read_text())
           head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-          if head != state['base_sha']:
-              raise SystemExit('Default branch changed during the build; rerun before publishing')
           if not re.fullmatch(r'v\d+\.\d+\.\d+-r\d+', state['tag']):
               raise SystemExit('Invalid release tag')
+          if state.get('tagged'):
+              tagged_head = subprocess.check_output(['git', 'rev-parse', 'refs/tags/' + state['tag'] + '^{commit}'], text=True).strip()
+              if tagged_head != state['base_sha']:
+                  raise SystemExit('Release tag changed during the build')
+          elif head != state['base_sha']:
+              raise SystemExit('Default branch changed during the build; rerun before publishing')
           output = root / 'dist/release'
           manifest = json.loads((output / 'manifest.json').read_text())
           app = manifest['components']['rozaneh']
@@ -137,17 +149,44 @@ jobs:
                   if path.name != item['name'] or hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
                       raise SystemExit('Release asset checksum mismatch')
                   assets.append(path)
-          subprocess.run(['git', 'apply', '--check', str(root / 'release-source/source.patch')], check=True)
-          subprocess.run(['git', 'apply', str(root / 'release-source/source.patch')], check=True)
-          subprocess.run(['git', 'config', 'user.name', 'Release maintenance'], check=True)
-          subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
-          subprocess.run(['git', 'add', 'cotten-upstream.json', 'Makefile', 'scripts/package.py', 'README.md', 'README.fa.md', 'README.en.md'], check=True)
-          subprocess.run(['git', 'commit', '-m', 'Update CottenDNS to ' + state['engine'] + ' and release ' + state['package_version']], check=True)
-          subprocess.run(['git', 'tag', state['tag']], check=True)
-          import os
-          subprocess.run(['git', 'push', '--atomic', 'origin', 'HEAD:refs/heads/' + os.environ['DEFAULT_BRANCH'], 'refs/tags/' + state['tag']], check=True)
+          if not state.get('tagged'):
+              subprocess.run(['git', 'apply', '--check', str(root / 'release-source/source.patch')], check=True)
+              subprocess.run(['git', 'apply', str(root / 'release-source/source.patch')], check=True)
+              subprocess.run(['git', 'config', 'user.name', 'Release maintenance'], check=True)
+              subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+              subprocess.run(['git', 'add', 'cotten-upstream.json', 'Makefile', 'scripts/package.py', 'README.md', 'README.fa.md', 'README.en.md'], check=True)
+              subprocess.run(['git', 'commit', '-m', 'Update CottenDNS to ' + state['engine'] + ' and release ' + state['package_version']], check=True)
+              subprocess.run(['git', 'tag', state['tag']], check=True)
+              subprocess.run(['git', 'push', '--atomic', 'origin', 'HEAD:refs/heads/' + os.environ['DEFAULT_BRANCH'], 'refs/tags/' + state['tag']], check=True)
           notes = 'Includes CottenDNS ' + state['engine'] + ' with the complete Rozaneh interface.\n\nValidation: integration tests, interface tests, all architecture builds, IPK/APK packages and SHA-256 verification.\n\nUpstream: ' + state['upstream_url']
-          # A draft is hidden from the router updater until every asset is uploaded.
-          subprocess.run(['gh', 'release', 'create', state['tag'], '--verify-tag', '--draft', '--title', 'Rozaneh ' + state['package_version'], '--notes', notes, *map(str, assets)], check=True)
+          repository = 'repos/' + os.environ['GITHUB_REPOSITORY']
+          def get_json(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True, encoding='utf-8'))
+          def drafts_for_tag():
+              return [release for release in get_json(repository + '/releases?per_page=100') if release['tag_name'] == state['tag']]
+          releases = drafts_for_tag()
+          if not releases:
+              subprocess.run(['gh', 'release', 'create', state['tag'], '--verify-tag', '--draft', '--title', 'Rozaneh ' + state['package_version'], '--notes', notes], check=True)
+              releases = drafts_for_tag()
+          if len(releases) != 1 or not releases[0]['draft']:
+              raise SystemExit('Expected a single unpublished release')
+          release_assets = repository + '/releases/' + str(releases[0]['id']) + '/assets'
+          expected = {path.name: (path.stat().st_size, 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()) for path in assets}
+          def matches(asset):
+              return asset['state'] == 'uploaded' and expected.get(asset['name']) == (asset['size'], asset['digest'])
+          existing = get_json(release_assets + '?per_page=100')
+          if any(asset['name'] not in expected for asset in existing):
+              raise SystemExit('Draft contains unexpected assets')
+          keep = {asset['name'] for asset in existing if matches(asset)}
+          for asset in existing:
+              if not matches(asset):
+                  subprocess.run(['gh', 'api', '--method', 'DELETE', repository + '/releases/assets/' + str(asset['id'])], check=True)
+          pending = [str(path) for path in assets if path.name not in keep]
+          if pending:
+              subprocess.run(['gh', 'release', 'upload', state['tag'], *pending], check=True)
+          uploaded = get_json(release_assets + '?per_page=100')
+          if {asset['name'] for asset in uploaded} != expected.keys() or not all(map(matches, uploaded)):
+              raise SystemExit('Published asset verification failed')
+          # Keep the draft hidden from the updater until all assets are verified.
           subprocess.run(['gh', 'release', 'edit', state['tag'], '--draft=false', '--latest'], check=True)
           PY
