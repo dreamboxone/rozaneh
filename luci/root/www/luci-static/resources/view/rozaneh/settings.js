@@ -38,6 +38,17 @@ return view.extend({
   [['auto','خودکار'],['ipv4','فقط IPv4'],['ipv6','فقط IPv6'],['dual','هر دو']].forEach(function(item){o.value(item[0],fa?item[1]:item[0]);});o.default='auto';o.rmempty=false;
   o=s.option(form.ListValue,'tunnel_mode',tr('Core mode','حالت هسته'));
   o.value('legacy','Normal');o.value('cottenmax',tr('CottenMax (experimental)','CottenMax (آزمایشی)'));o.default='legacy';o.rmempty=false;
+  o=s.option(form.ListValue,'fec_download',tr('CottenMax download FEC','تصحیح خطای دانلود CottenMax'));
+  o.value('',tr('Use core or advanced configuration','طبق هسته یا تنظیمات پیشرفته'));
+  o.value('1',tr('Enabled','روشن')); o.value('0',tr('Disabled','خاموش'));
+  o.default=''; o.retain=true; o.depends('tunnel_mode','cottenmax');
+  o.description=tr('Reconstructs some lost download packets using extra data. Requires FEC support on the server.', 'با فرستادن دادهٔ اضافی، بخشی از بسته‌های ازدست‌رفتهٔ دانلود را بازیابی می‌کند. سرور باید از FEC پشتیبانی کند.');
+  o=s.option(form.Value,'fec_data',tr('FEC data shards','قطعه‌های دادهٔ FEC'));
+  o.datatype='and(uinteger,range(2,16))'; o.placeholder='4'; o.retain=true;
+  o.depends({tunnel_mode:'cottenmax',fec_download:'1'});
+  o=s.option(form.Value,'fec_parity',tr('FEC recovery shards','قطعه‌های بازیابی FEC'));
+  o.datatype='and(uinteger,range(1,4))'; o.placeholder='1'; o.retain=true;
+  o.depends({tunnel_mode:'cottenmax',fec_download:'1'});
   o=s.option(form.Value,'listen',tr('SOCKS5 listener','آدرس پراکسی SOCKS5'));o.default='127.0.0.1:1088';o.rmempty=false;
   o=s.option(form.TextValue,'advanced_config',tr('Advanced CottenDNS configuration','تنظیمات پیشرفته CottenDNS'));
   o.rows=18;o.wrap='off';

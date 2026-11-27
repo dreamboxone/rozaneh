@@ -28,12 +28,19 @@ google_pid=''; trace_pid=''
 google_code=$(cat "$work/google-code")
 trace_code=$(cat "$work/trace-code")
 ip=$(sed -n 's/^ip=//p' "$work/trace-body" 2>/dev/null | head -1)
+google_ok=0
+trace_ok=0
+[ "$google_exit" = 0 ] && [ "$google_code" = 204 ] && google_ok=1
+[ "$trace_exit" = 0 ] && [ "$trace_code" = 200 ] && [ -n "$ip" ] && trace_ok=1
+[ "$trace_ok" = 1 ] || ip=''
 connected=0
-if [ "$google_exit" = 0 ] && [ "$google_code" = 204 ] && [ "$trace_exit" = 0 ] && [ "$trace_code" = 200 ] && [ -n "$ip" ]; then connected=1; fi
+if [ "$google_ok" = 1 ] || [ "$trace_ok" = 1 ]; then connected=1; fi
 json_init
 json_add_int updated "$(date +%s)"
 json_add_boolean connected "$connected"
 json_add_boolean checking 0
+json_add_boolean google_ok "$google_ok"
+json_add_boolean trace_ok "$trace_ok"
 json_add_string exit_ip "$ip"
 json_add_string google_http "$google_code"
 json_add_string trace_http "$trace_code"

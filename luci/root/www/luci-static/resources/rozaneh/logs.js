@@ -28,6 +28,8 @@ var messages = [
  ['LAN tunnel did not start','تونل شبکه داخلی اجرا نشد'],
  ['LAN internet sharing started using ','اشتراک اینترنت شبکه داخلی آغاز شد با '],
  ['(TCP through Soar, DNS through HTTPS)','(TCP از طریق Soar و DNS از طریق HTTPS)'],
+ ['(TCP through CottenDNS, DNS through HTTPS)','(TCP از طریق CottenDNS و DNS از طریق HTTPS)'],
+ ['(TCP and UDP through CottenDNS, DNS through HTTPS)','(TCP و UDP از طریق CottenDNS و DNS از طریق HTTPS)'],
  ['SOCKS5 listening on ','پراکسی SOCKS5 آماده دریافت اتصال است در '],
  ['resolver diagnostics: ','بررسی مسیرهای ریزالور: '],
  ['zone and a valid base64 32-byte public key are required','دامنه و کلید عمومی معتبر ۳۲ بایتی با قالب Base64 لازم است'],

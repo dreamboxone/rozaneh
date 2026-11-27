@@ -3,7 +3,8 @@
 # Copyright (C) 2026 dreamboxone <https://t.me/routekernel1>
 . /usr/share/libubox/jshn.sh
 umask 077
-repo='https://github.com/dreamboxone/rozaneh/releases/latest/download'
+releases='https://github.com/dreamboxone/rozaneh/releases'
+repo="$releases/latest/download"
 state=/tmp/rozaneh-update
 mkdir -p "$state"
 reply() { json_init; json_add_boolean ok "$1"; json_add_string message "$2"; json_dump; }
@@ -19,7 +20,7 @@ platform() {
 	if command -v apk >/dev/null 2>&1; then format=apk; else format=ipk; fi
 }
 component() {
-	json_load "$(cat "$state/manifest.json")" || return 1
+	json_load "$(cat "${2:-$state/manifest.json}")" || return 1
 	json_select components && json_select "$1" || return 1
 	json_get_var bundled_luci bundled_luci
  [ "$bundled_luci" = 1 ] || return 1
@@ -39,6 +40,49 @@ installed() {
 newer() {
 	if [ "$format" = apk ]; then apk version -t "$1" "$2" | grep -q '^<$'
 	else opkg compare-versions "$1" '<' "$2"; fi
+}
+valid_version() { printf '%s\n' "$1" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$'; }
+rollback_available() {
+	local current="$1"
+	[ -s "$state/rollback" ] || return 1
+	read -r rollback_version rollback_checksum < "$state/rollback" || return 1
+	valid_version "$rollback_version" || return 1
+	rollback_package="$state/rollback.$rollback_version.$format"
+	[ -s "$rollback_package" ] && newer "$rollback_version" "$current"
+}
+cache_rollback() (
+	version="$1"
+	valid_version "$version" || exit 1
+	cache="$state/rollback.$version.$format"
+	previous=''
+	previous_checksum=''
+	[ ! -s "$state/rollback" ] || read -r previous previous_checksum < "$state/rollback"
+	if [ "$previous" = "$version" ] && [ -s "$cache" ] &&
+	   printf '%s  %s\n' "$previous_checksum" "$cache" | sha256sum -c - >/dev/null 2>&1; then exit 0; fi
+	work=$(mktemp -d "$state/rollback.XXXXXX") || exit 1
+	trap 'rm -f "$work/manifest.json" "$work/package" "$work/metadata"; rmdir "$work"' EXIT
+	url="$releases/download/v$version"
+	fetch --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 6 --max-time 12 --max-filesize 1048576 "$url/manifest.json" -o "$work/manifest.json" || exit 1
+	component rozaneh "$work/manifest.json" && [ "$latest" = "$version" ] || exit 1
+	if [ -s "$state/$filename" ] && printf '%s  %s\n' "$checksum" "$state/$filename" | sha256sum -c - >/dev/null 2>&1; then
+		mv "$state/$filename" "$work/package" || exit 1
+	else
+		fetch --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 6 --max-time 90 --max-filesize 67108864 "$url/$filename" -o "$work/package" || exit 1
+		printf '%s  %s\n' "$checksum" "$work/package" | sha256sum -c - || exit 1
+	fi
+	printf '%s %s\n' "$version" "$checksum" > "$work/metadata" || exit 1
+	mv "$work/package" "$cache" && mv "$work/metadata" "$state/rollback" || exit 1
+	if [ "$previous" != "$version" ] && valid_version "$previous"; then rm -f "$state/rollback.$previous.$format"; fi
+)
+wait_until_connected() {
+	local deadline result
+	deadline=$(($(date +%s) + 90))
+	while [ "$(date +%s)" -lt "$deadline" ]; do
+		result=$(/usr/libexec/rpcd/rozaneh call status 2>/dev/null)
+		[ "$(printf '%s' "$result" | jsonfilter -e '@.connected')" != true ] || return 0
+		sleep 3
+	done
+	return 1
 }
 fetch() {
 	local listen services
@@ -73,6 +117,8 @@ status() {
 	json_add_string log "$(tail -8 "$state/install.log" 2>/dev/null)"
 	json_add_string architecture "$arch"
 	json_add_string format "$format"
+	current=$(installed rozaneh)
+	rollback_available "$current" && json_add_string rollback_version "$rollback_version"
 	json_add_array components
 	for name in rozaneh; do
 		current=$(installed "$name")
@@ -103,31 +149,50 @@ start)
  scope=${2:-all}
  force=${3:-0}
  case "$force" in 0|1) ;; *) reply 0 'Unsupported reinstall flag'; exit 0 ;; esac
- case "$scope" in all) ;; *) reply 0 'Unsupported update scope'; exit 0 ;; esac
-	[ -s "$state/manifest.json" ] || { reply 0 'Check for updates first.'; exit 0; }
+ case "$scope" in
+ all) [ -s "$state/manifest.json" ] || { reply 0 'Check for updates first.'; exit 0; } ;;
+ rollback)
+	platform
+	[ "$force" = 0 ] && rollback_available "$(installed rozaneh)" || { reply 0 'The previous package is unavailable.'; exit 0; }
+	;;
+ *) reply 0 'Unsupported update scope'; exit 0 ;;
+ esac
 	mkdir "$state/lock" 2>/dev/null || { reply 0 'An update is already running.'; exit 0; }
 	progress preparing -1
-	cp /usr/libexec/rozaneh/update "$state/run.sh"
+	if ! cp /usr/libexec/rozaneh/update "$state/run.sh"; then
+		progress failed -1
+		rmdir "$state/lock"
+		reply 0 'Could not start the package installer.'
+		exit 0
+	fi
 	sh "$state/run.sh" install "$scope" "$force" > "$state/install.log" 2>&1 < /dev/null &
-	if [ "$force" = 1 ]; then reply 1 'Reinstallation started.'; else reply 1 'Update started. The complete app will be downloaded.'; fi
+	if [ "$scope" = rollback ]; then reply 1 'Rollback started.'
+	elif [ "$force" = 1 ]; then reply 1 'Reinstallation started.'
+	else reply 1 'Update started. The complete app will be downloaded.'; fi
 	;;
 install)
  scope=${2:-all}
  force=${3:-0}
  case "$force" in 0|1) ;; *) exit 1 ;; esac
- case "$scope" in all) components=rozaneh ;; *) exit 1 ;; esac
+ case "$scope" in all|rollback) ;; *) exit 1 ;; esac
 	finished=0; watcher=''
 	trap '[ -z "$watcher" ] || { kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null; }; [ "$finished" = 1 ] || progress failed -1; rmdir "$state/lock" 2>/dev/null' EXIT
 	trap 'exit 1' INT TERM
 	platform
-	set --
-	for name in $components; do
-		current=$(installed "$name")
-		component "$name" || { echo "No compatible asset: $name ($arch, $format)"; exit 1; }
-		if ! newer "$current" "$latest"; then
-			[ "$force" = 1 ] && [ "$current" = "$latest" ] || { echo "Unchanged: $name"; continue; }
+	current=$(installed rozaneh)
+	if [ "$scope" = rollback ]; then
+		[ "$force" = 0 ] && rollback_available "$current" || exit 1
+		printf '%s  %s\n' "$rollback_checksum" "$rollback_package" | sha256sum -c - || exit 1
+		set -- "$rollback_package"
+	else
+		component rozaneh || { echo "No compatible asset: rozaneh ($arch, $format)"; exit 1; }
+		upgrade=0
+		if newer "$current" "$latest"; then
+			upgrade=1
+		elif [ "$force" != 1 ] || [ "$current" != "$latest" ]; then
+			finished=1; progress completed 100; echo 'Already up to date.'; exit 0
 		fi
-		echo "Downloading: $name $latest"
+		echo "Downloading: rozaneh $latest"
 		case "$expected_size" in ''|*[!0-9]*) expected_size=0;; esac
 		[ "$expected_size" -le 67108864 ] 2>/dev/null || expected_size=0
 		progress downloading 0
@@ -145,22 +210,42 @@ install)
 		[ "$download_result" = 0 ] || exit 1
 		progress verifying 100
 		printf '%s  %s\n' "$checksum" "$state/$filename" | sha256sum -c - || exit 1
-		set -- "$@" "$state/$filename"
-	done
-	[ "$#" -gt 0 ] || { finished=1; progress completed 100; echo 'Already up to date.'; exit 0; }
+		set -- "$state/$filename"
+		if [ "$upgrade" = 1 ]; then
+			progress saving_previous -1
+			cache_rollback "$current" || echo 'Previous package unavailable. This update will proceed without a rollback package.'
+		fi
+	fi
 	progress installing -1
 	if [ "$format" = apk ]; then
 		if [ "$force" = 1 ]; then apk add --force-reinstall --allow-untrusted "$@"; else apk add --allow-untrusted "$@"; fi
+	elif [ "$scope" = rollback ]; then
+		opkg --force-downgrade install "$@"
 	else
 		if [ "$force" = 1 ]; then opkg --force-reinstall install "$@"; else opkg install "$@"; fi
 	fi
 	result=$?
-	if [ "$result" = 0 ]; then
-		[ "$(uci -q get rozaneh.main.enabled)" = 1 ] && /etc/init.d/rozaneh restart
+	if [ "$result" != 0 ]; then
+		echo 'Package installation failed.'
+		exit "$result"
+	fi
+	if [ "$(uci -q get rozaneh.main.enabled)" = 1 ]; then
+		progress checking_health -1
+		if ! /etc/init.d/rozaneh restart || ! wait_until_connected; then
+			echo 'The package was installed, but the enabled tunnel did not return online.'
+			finished=1; progress health_failed -1
+			exit 1
+		fi
+	fi
+	finished=1
+	if [ "$scope" = rollback ]; then
+		echo 'Rollback completed.'
+		progress rolled_back 100
+	else
 		echo 'Update completed.'
-		finished=1; progress completed 100
-	else echo 'Update failed. Existing configuration has been retained.'; fi
-	exit "$result"
+		progress completed 100
+	fi
+	exit 0
 	;;
 *) reply 0 'Unknown update action' ;;
 esac

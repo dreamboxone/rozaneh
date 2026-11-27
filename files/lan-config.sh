@@ -7,6 +7,9 @@ set -e
 config_load rozaneh
 config_get devices main lan_devices 'br-lan'
 config_get listen main listen '127.0.0.1:1088'
+config_get mode main tunnel_mode legacy
+config_get_bool udp main lan_udp 0
+[ "$mode" = legacy ] || udp=0
 . /usr/libexec/rozaneh/dependencies.sh
 rozaneh_check_lan_devices "$devices"
 case "$listen" in 127.0.0.1:*|0.0.0.0:*) ;; *) echo 'LAN mode requires an IPv4 loopback or wildcard SOCKS listener' >&2; exit 1 ;; esac
@@ -60,14 +63,17 @@ json_close_array
 json_add_array outbounds
 	json_add_object ''
 		json_add_string type socks; json_add_string tag tunnel; json_add_string server 127.0.0.1
-		json_add_int server_port "$port"; json_add_string version 5; json_add_string network tcp; json_add_string bind_interface lo
+		json_add_int server_port "$port"; json_add_string version 5; json_add_string bind_interface lo
+		[ "$udp" = 1 ] || json_add_string network tcp
 	json_close_object
 json_close_array
 json_add_object route
 	json_add_boolean auto_detect_interface 1
 	json_add_array rules
 		json_add_object ''; json_add_int port 53; json_add_string action hijack-dns; json_close_object
-		json_add_object ''; json_add_string network udp; json_add_string action reject; json_close_object
+		if [ "$udp" != 1 ]; then
+			json_add_object ''; json_add_string network udp; json_add_string action reject; json_close_object
+		fi
 	json_close_array
 	json_add_string final tunnel
 json_close_object

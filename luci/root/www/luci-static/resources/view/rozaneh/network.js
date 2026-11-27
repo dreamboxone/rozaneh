@@ -29,6 +29,9 @@ return view.extend({
   o.description = zui.optionDescription('lan_devices');
   o.default = ['br-lan']; o.rmempty = false;
   o.validate = function(section, value) { return value === '' || /^[a-zA-Z0-9_.:-]{1,15}$/.test(value || '') || tr('Enter a Linux network device name, such as br-lan.', 'نام رابط شبکه مانند br-lan را وارد کنید.'); };
+  o = s.option(form.Flag, 'lan_udp', tr('Route LAN UDP through the tunnel', 'عبور UDP شبکهٔ داخلی از تونل'));
+  o.default = '0'; o.rmempty = false;
+  o.description = tr('Applies in Normal core mode. Includes traffic such as QUIC and voice calls. CottenMax keeps its TCP-only LAN routing.', 'در حالت Normal اعمال می‌شود و ترافیکی مانند QUIC و تماس صوتی را هم عبور می‌دهد. مسیر شبکهٔ داخلی در حالت CottenMax روی TCP می‌ماند.');
   return m.render().then(function(formNode) {
    return zui.optionHelp(E('div', { 'class': 'mk' + (localStorage.getItem('rozaneh-dark') === '1' ? ' mk-dark' : ''), dir: fa ? 'rtl' : 'ltr' }, [
     E('link', { rel:'stylesheet', href:L.resource('rozaneh/theme.css')+'?v=1.0.0-r1' }),

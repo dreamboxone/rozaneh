@@ -159,6 +159,7 @@ return view.extend({
     var state=zui.connectionState(s);
     var names={stopped:tr('Off','خاموش'),blocked:tr('Needs attention','نیاز به بررسی'),starting:tr('Starting…','در حال راه‌اندازی…'),connecting:tr('Connecting…','در حال اتصال…'),connected:tr('Connected','متصل')};
     var details={stopped:'',blocked:s.conflict?(s.conflict_name==='zirgozar'?tr('Zirgozar is on. Rozaneh will not start.','روزنه نمی‌تواند همزمان با زیرگذر فعال باشد. لطفا زیرگذر را خاموش کنید.'):tr('Stop the other transparent proxy first.','ابتدا پراکسی دیگر روتر را خاموش کنید.')):tr('Install the required packages.','بسته‌های موردنیاز را نصب کنید.'),starting:tr('Starting the tunnel and LAN routing…','در حال راه‌اندازی تونل و شبکه داخلی…'),connecting:tr('Waiting for external internet access…','در حال دسترسی به اینترنت...'),connected:''};
+    if(state==='connecting'&&s.tunnel_ready) details.connecting=tr('The tunnel session is established. Internet access checks have yet to pass.','نشست تونل برقرار است. آزمون دسترسی به اینترنت هنوز موفق نشده است.');
     connectionDetail.textContent=details[state];
     connectionDetail.hidden=!details[state];
     if (!powerBusy) powerSwitch.checked=!!s.enabled;

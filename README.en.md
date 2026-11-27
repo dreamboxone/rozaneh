@@ -20,15 +20,19 @@ wget -O /tmp/rozaneh-install.sh https://raw.githubusercontent.com/dreamboxone/ro
 
 The installer detects OpenWrt package architecture and APK/OPKG, verifies the published SHA-256 and installs one package containing the engine and LuCI. Releases must contain manifest.json and the corresponding architecture asset.
 
+**The Rozaneh package download is about 6.7–7.3 MB**, depending on architecture and format. The Google WiFi AC1304 package for `arm_cortex-a7_neon-vfpv4` is about **6.9 MB**. Each release lists exact file sizes under Assets. Missing dependencies are downloaded separately. [Release assets](https://github.com/dreamboxone/rozaneh/releases/latest)
+
 Alternatively copy the matching release APK/IPK into /tmp using [MobaXterm](https://mobaxterm.mobatek.net/download-home-edition.html) and install with apk add --allow-untrusted or opkg install. Open Services → Rozaneh, enter the server domain and shared key, choose the compatible engine mode, install missing dependencies and enable the service. Stop competing transparent proxies first.
 
 ## Features and limits
 
-Persian/English LuCI, responsive light/dark interface, SOCKS5, LAN TCP routing, service control, connectivity checks, log copy/clear and traffic counters. Counters include engine transport traffic. Native advanced TOML settings are available; some legacy UI fields remain under migration. Normal ARQ/compression/duplication controls do not control Max. LAN routing does not support arbitrary UDP.
+Rozaneh includes Persian and English LuCI, SOCKS5, LAN routing, service controls, connectivity checks, logs and traffic counters. In Normal mode, the Network page can enable UDP routing for LAN clients. CottenMax routes LAN TCP and offers download FEC in Other settings for use with a compatible server. The diagnostic report in Logs includes process memory and socket counts. Advanced CottenDNS TOML settings are available.
 
 ## Updates and builds
 
 The displayed core version uses the Gregorian release date, for example 2026.10.24. Full upstream release tags and immutable source revisions identify builds. The daily workflow checks published CottenDNS releases, builds and tests a complete matching Rozaneh package and publishes architecture assets together with LuCI.
+
+For an enabled service, the update page checks that the tunnel reconnects after installation. During a LuCI upgrade, Rozaneh saves the previous published package when available, which may require a separate package download. The restore action is available until the router reboots.
 
 Use scripts/build-release.py to cross-build and scripts/package.py to package. The source pin is cotten-upstream.json. Python, Git and a compatible Go toolchain are required. Third-party licenses are bundled.
 

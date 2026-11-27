@@ -5,14 +5,15 @@ set -eu
 stage=${1:?Usage: router-update.sh STAGED_UPDATER}
 work=$(mktemp -d /tmp/rozaneh-update-test.XXXXXX)
 cleanup() {
-	rm -f "$work/state/progress" "$work/state/progress.tmp"
+	rm -f "$work/state/progress" "$work/state/progress.tmp" "$work/state/rollback"
+	rm -f "$work/state"/rollback.*.apk "$work/previous-manifest.json" "$work/installed"
 	rm -f "$work/bin/apk" "$work/bin/curl" "$work/bin/uci" "$work/bin/ubus" "$work/run.sh" "$work/calls" "$work/curl-calls" "$work/state/manifest.json" "$work/state/fixture.apk"
 	rmdir "$work/state/lock" 2>/dev/null || true
 	rmdir "$work/bin" "$work/state" "$work"
 }
 trap cleanup EXIT
 mkdir "$work/bin" "$work/state"
-sed "s|^state=/tmp/rozaneh-update$|state=$work/state|" "$stage/update" > "$work/run.sh"
+sed "s|^state=/tmp/rozaneh-update$|state=$work/state|;s|/usr/share/rozaneh/core.version|$work/installed|" "$stage/update" > "$work/run.sh"
 cat > "$work/bin/apk" <<'EOF'
 #!/bin/sh
 if [ "$1" = version ]; then printf '%s\n' "$UPDATE_COMPARE"; exit 0; fi
@@ -21,9 +22,16 @@ EOF
 cat > "$work/bin/curl" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$UPDATE_CURL_CALLS"
+previous_manifest=0
 while [ "$#" -gt 0 ]; do
+ case "$1" in */download/v*/manifest.json) previous_manifest=1 ;; esac
  if [ "$1" = -o ]; then
   shift
+  if [ "$previous_manifest" = 1 ]; then
+   [ -f "$UPDATE_PREVIOUS_MANIFEST" ] || exit 22
+   cp "$UPDATE_PREVIOUS_MANIFEST" "$1"
+   exit $?
+  fi
   if [ "${UPDATE_SLOW:-0}" = 1 ]; then printf 'package ' > "$1"; sleep 3; fi
   printf 'package fixture\n' > "$1"; exit 0
  fi
@@ -45,8 +53,10 @@ printf '%s\n' '{"rozaneh":{"instances":{"client":{"running":true}}}}'
 EOF
 chmod 755 "$work/bin/apk" "$work/bin/curl" "$work/bin/uci" "$work/bin/ubus"
 export PATH="$work/bin:$PATH" UPDATE_CALLS="$work/calls" UPDATE_CURL_CALLS="$work/curl-calls"
+export UPDATE_PREVIOUS_MANIFEST="$work/previous-manifest.json"
 . /etc/openwrt_release
 current=$(cat /usr/share/rozaneh/core.version)
+printf '%s\n' "$current" > "$work/installed"
 checksum=$(printf 'package fixture\n' | sha256sum | awk '{print $1}')
 manifest() {
  printf '{"schema":1,"components":{"rozaneh":{"version":"%s","bundled_luci":true,"assets":{"apk":{"%s":{"name":"fixture.apk","sha256":"%s","size":16}}}}}}\n' "$1" "$DISTRIB_ARCH" "$checksum" > "$work/state/manifest.json"
@@ -77,10 +87,18 @@ export UPDATE_COMPARE='='
 manifest "$current"
 mkdir "$work/state/lock"
 # The fixture must not call the real service restart after the simulated install.
-sed 's|\[ "$(uci -q get rozaneh.main.enabled)" = 1 \] \&\& /etc/init.d/rozaneh restart|true|' "$work/run.sh" > "$work/run.sh.tmp"
+sed 's|/etc/init.d/rozaneh restart|true|;s|! wait_until_connected|! true|' "$work/run.sh" > "$work/run.sh.tmp"
 mv "$work/run.sh.tmp" "$work/run.sh"
 sh "$work/run.sh" install all 1
 grep -q -- '--socks5-hostname 127.0.0.1:1088' "$work/curl-calls"
+mkdir "$work/state/lock"
+sed 's|! true; then|! false; then|' "$work/run.sh" > "$work/run.sh.tmp"
+if sh "$work/run.sh.tmp" install all 1; then
+ echo 'An installed package with an unhealthy tunnel was reported as successful' >&2
+ exit 1
+fi
+grep -q '^health_failed -1$' "$work/state/progress"
+rm -f "$work/run.sh.tmp"
 export UPDATE_SLOW=1
 mkdir "$work/state/lock"
 sh "$work/run.sh" install all 1 & slow_pid=$!
@@ -92,4 +110,24 @@ done
 wait "$slow_pid"
 [ "$saw_progress" = 1 ]
 grep -q '^completed 100$' "$work/state/progress"
-echo 'Updater comparison, reinstall, proxy download and live progress scenarios passed'
+export UPDATE_USE_PROXY=0 UPDATE_SLOW=0 UPDATE_COMPARE='<'
+manifest "$current"
+cp "$work/state/manifest.json" "$UPDATE_PREVIOUS_MANIFEST"
+manifest '99.0.0-r1'
+mkdir "$work/state/lock"
+sh "$work/run.sh" install all 0
+printf '%s\n' '99.0.0-r1' > "$work/installed"
+[ "$(sh "$work/run.sh" status | jsonfilter -e '@.rollback_version')" = "$current" ]
+cached="$work/state/rollback.$current.apk"
+printf 'tampered\n' > "$cached"
+mkdir "$work/state/lock"
+if sh "$work/run.sh" install rollback 0; then
+ echo 'A package with a mismatched rollback checksum was installed' >&2
+ exit 1
+fi
+printf 'package fixture\n' > "$cached"
+mkdir "$work/state/lock"
+sh "$work/run.sh" install rollback 0
+grep -Fq "add --allow-untrusted $cached" "$work/calls"
+grep -q '^rolled_back 100$' "$work/state/progress"
+echo 'Updater comparison, reinstall, proxy download, progress, health and rollback scenarios passed'

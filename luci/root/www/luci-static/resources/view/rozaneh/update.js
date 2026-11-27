@@ -24,6 +24,9 @@ function translated(text){
   'An update is already running.':'به‌روزرسانی دیگری در حال اجراست.',
   'Update started. The complete app will be downloaded.':'دانلود و نصب روزنه شروع شد.',
   'Reinstallation started.':'نصب مجدد شروع شد.',
+  'Rollback started.':'بازگشت به نسخهٔ قبلی شروع شد.',
+  'The previous package is unavailable.':'بستهٔ نسخهٔ قبلی در دسترس نیست.',
+  'Could not start the package installer.':'راه‌اندازی نصب‌کنندهٔ بسته ممکن نشد.',
   'Dependency installation started.':'نصب نیازمندی‌های روتر شروع شد.',
   'All dependencies are installed.':'همه نیازمندی‌های روتر نصب هستند.'
  };
@@ -62,7 +65,11 @@ return view.extend({
    var n=notes[key];
    if(key===progressRow&&report.phase){
     var phases={preparing:tr('Preparing download…','در حال آماده سازی دانلود…'),downloading:tr('Downloading','در حال دانلود'),verifying:tr('Download complete; verifying file…','دانلود کامل شد؛ در حال بررسی فایل…'),installing:tr('Installing…','در حال نصب…'),completed:tr('Update completed.','بروزرسانی انجام شد.'),failed:tr('Update failed. See the update log.','بروزرسانی ناموفق بود. گزارش بروزرسانی را بررسی کنید.')};
-    if(phases[report.phase])n={text:phases[report.phase]+(report.phase==='downloading'&&report.progress>=0?' '+Number(report.progress)+'%':''),kind:report.phase==='failed'?'error':'info'};
+    phases.checking_health=tr('Installed. Checking the tunnel connection…','بسته نصب شد. اتصال تونل در حال بررسی است…');
+    phases.health_failed=tr('The package was installed, but the tunnel did not return online.','بسته نصب شد، اما اتصال تونل دوباره برقرار نشد.');
+    phases.saving_previous=tr('Saving the previous package for rollback…','در حال ذخیرهٔ بستهٔ قبلی برای بازگشت…');
+    phases.rolled_back=tr('Previous package restored.','بستهٔ نسخهٔ قبلی دوباره نصب شد.');
+    if(phases[report.phase])n={text:phases[report.phase]+(report.phase==='downloading'&&report.progress>=0?' '+Number(report.progress)+'%':''),kind:report.phase==='failed'||report.phase==='health_failed'?'error':'info'};
    }
    return E('div',{'class':'zd-update-row'},[
     E('div',{'class':'zd-update-label'},label),E('div',{'class':'zd-update-value'},value),E('div',{'class':'zd-update-actions'},actions),
@@ -82,10 +89,14 @@ return view.extend({
   function draw(){
    var components=report.components||[];
    var core=components.filter(function(c){return c.name==='rozaneh';})[0]||{current:router.version||'—'};
+   var appActions=[checkButton('app'),installButton('app','all',core)];
+   if(report.rollback_version)appActions.push(button(tr('Restore ','بازگشت به ')+zui.versionText(report.rollback_version),'soft-blue','app',function(){
+    return install('rollback',false).then(function(result){if(result.ok){installAsked=Date.now();progressRow='app';localStorage.setItem('rozaneh-update-row','app');}return result;});
+   },'update'));
    var engineActions=[checkButton('engine')];
    if(core.latest_engine&&core.latest_engine!=='unknown')engineActions.push(installButton('engine','all',core,core.available?tr('Update with Rozaneh','به‌روزرسانی همراه روزنه'):tr('Reinstall with Rozaneh','نصب مجدد همراه روزنه')));
    app.replaceChildren(
-    row(zui.name(),[chip('【 '+zui.versionText(core.current)+' 】','ok'),state(core)],[checkButton('app'),installButton('app','all',core)],'app'),
+    row(zui.name(),[chip('【 '+zui.versionText(core.current)+' 】','ok'),state(core)],appActions,'app'),
     row(tr('CottenDNS core','هسته CottenDNS'),[
      chip(engineVersion(core.current_engine),'ok',core.current_engine),
      core.latest_engine&&core.latest_engine!=='unknown'?E('span',{},[tr('With the available package: ','همراه بسته آماده: '),chip(engineVersion(core.latest_engine),'info',core.latest_engine)]):E('span',{'class':'mk-muted'},tr('No compatible package checked','بسته سازگار بررسی نشده')),

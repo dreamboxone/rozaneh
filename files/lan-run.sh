@@ -91,6 +91,8 @@ for device in $devices; do
  ip -6 rule add pref 12801 iif "$device" lookup 28028
 done
 printf '%s\n' "$$" > "$state/ready"
-logger -t rozaneh "LAN internet sharing started using $singbox (TCP through Soar, DNS through HTTPS)"
+network=$(jsonfilter -i "$state/sing-box.json" -e '@.outbounds[0].network' || true)
+if [ "$network" = tcp ]; then network=TCP; else network='TCP and UDP'; fi
+logger -t rozaneh "LAN internet sharing started using $singbox ($network through CottenDNS, DNS through HTTPS)"
 while kill -0 "$pid" 2>/dev/null; do ensure_firewall; sleep 3 & wait $! || true; done
 wait "$pid"

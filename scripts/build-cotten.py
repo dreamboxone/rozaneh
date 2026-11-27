@@ -44,7 +44,10 @@ def main():
         if args.test:
             test_env={key:value for key,value in env.items() if key not in ('GOOS','GOARCH','GOARM','GOAMD64','GOMIPS','GOMIPS64')}
             run('go','test','-race','-count=100','-run=^TestARQ_ClientGracefulCloseWriteFailureQueuesCloseWrite$','-timeout=180s','./internal/arq',cwd=source,env={**test_env,'CGO_ENABLED':'1'})
-            run('go','test','-race','-timeout=180s','./internal/client','./internal/arq','./internal/config','./cmd/rozaneh',cwd=source,env={**test_env,'CGO_ENABLED':'1'})
+            run('go','test','-race','-timeout=180s',
+                './internal/client','./internal/arq','./internal/config','./internal/dnscache',
+                './internal/udpserver','./internal/cottenmax/engine','./cmd/rozaneh',
+                cwd=source,env={**test_env,'CGO_ENABLED':'1'})
         env.update(GOOS='linux',GOARCH=args.goarch)
         if args.goarch=='arm':env['GOARM']=args.goarm
         output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)

@@ -36,6 +36,11 @@ call)
 		health_updated=$(jsonfilter -i /var/run/rozaneh/health.json -e '@.updated' 2>/dev/null)
 		case "$health_updated" in ''|*[!0-9]*) health_updated=0 ;; esac
 		now=$(date +%s)
+		paths_updated=$(jsonfilter -i /var/run/rozaneh/paths.json -e '@.updated' 2>/dev/null)
+		case "$paths_updated" in ''|*[!0-9]*) paths_updated=0 ;; esac
+		tunnel_ready=0
+		if [ "$running" = 1 ] && [ "$paths_updated" -ge "$((now - 15))" ] && [ "$paths_updated" -le "$((now + 5))" ] &&
+		   [ "$(jsonfilter -i /var/run/rozaneh/paths.json -e '@.established' 2>/dev/null)" = true ]; then tunnel_ready=1; fi
 		connected=0
 		if [ "$running" = 1 ] && [ "$lan_ready" = 1 ] && [ "$health_running" = 1 ] &&
 		   [ "$health_updated" -ge "$((now - 60))" ] && [ "$health_updated" -le "$((now + 5))" ] &&
@@ -49,6 +54,7 @@ call)
 		json_add_boolean lan_running "$lan_running"
 		json_add_boolean lan_ready "$lan_ready"
 		json_add_boolean connected "$connected"
+		json_add_boolean tunnel_ready "$tunnel_ready"
 		json_add_boolean health_running "$health_running"
 		json_add_int health_updated "$health_updated"
 		json_add_string exit_ip "$(jsonfilter -i /var/run/rozaneh/health.json -e '@.exit_ip' 2>/dev/null)"
@@ -94,6 +100,17 @@ call)
 			printf 'Rozaneh diagnostic report\nUTC: '; date -u '+%Y-%m-%dT%H:%M:%SZ'
 			printf 'Version: '; cat /usr/share/rozaneh/core.version
 			printf '\nMemory:\n'; free
+			printf '\nLoad averages:\n'; cat /proc/loadavg
+			printf '\nSystem socket counts:\n'; cat /proc/net/sockstat /proc/net/sockstat6 2>/dev/null
+			services=$(ubus call service list '{"name":"rozaneh"}' 2>/dev/null)
+			for instance in client lan health; do
+				pid=$(printf '%s' "$services" | jsonfilter -e "@.rozaneh.instances.$instance.pid")
+				case "$pid" in ''|*[!0-9]*) continue ;; esac
+				printf '\n%s process resources:\n' "$instance"
+				awk '/^(VmRSS|VmHWM|VmSwap|Threads|FDSize):/ {print}' "/proc/$pid/status" 2>/dev/null
+				printf 'Open file descriptors: '
+				ls -1 "/proc/$pid/fd" 2>/dev/null | wc -l
+			done
 			printf '\nHealth:\n'; cat /var/run/rozaneh/health.json 2>/dev/null
 			for name in runtime.json paths.json traffic.json; do
 				printf '\n--- %s ---\n' "$name"
@@ -199,7 +216,7 @@ call)
     json_get_var scope scope
     json_get_var force force
     case "$force" in 1|true) force=1 ;; 0|false|'') force=0 ;; *) reply 0 'Invalid reinstall flag'; exit 0 ;; esac
-    case "$scope" in all|'') /usr/libexec/rozaneh/update start "${scope:-all}" "$force" ;; *) reply 0 'Invalid update scope' ;; esac
+    case "$scope" in all|rollback|'') /usr/libexec/rozaneh/update start "${scope:-all}" "$force" ;; *) reply 0 'Invalid update scope' ;; esac
     ;; esac
 		;;
 	*) reply 0 'Unknown method' ;;

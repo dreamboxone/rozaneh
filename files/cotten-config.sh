@@ -13,6 +13,26 @@ mkdir -p /var/run/rozaneh
 json_init
 config_get mode main tunnel_mode legacy
 json_add_string TUNNEL_MODE "$mode"
+if [ "$mode" = cottenmax ]; then
+	config_get fec main fec_download ''
+	case "$fec" in
+		0|1) json_add_boolean COTTENMAX_FEC_DOWNLOAD_ENABLED "$fec" ;;
+	esac
+	if [ "$fec" = 1 ]; then
+		config_get fec_data main fec_data ''
+		config_get fec_parity main fec_parity ''
+		case "$fec_data" in
+			[2-9]|1[0-6]) json_add_int COTTENMAX_FEC_DATA_SHARDS "$fec_data" ;;
+			'') ;;
+			*) echo 'FEC data shards must be 2–16' >&2; exit 1 ;;
+		esac
+		case "$fec_parity" in
+			[1-4]) json_add_int COTTENMAX_FEC_PARITY_SHARDS "$fec_parity" ;;
+			'') ;;
+			*) echo 'FEC parity shards must be 1–4' >&2; exit 1 ;;
+		esac
+	fi
+fi
 json_add_array DOMAINS
 json_add_string '' "$domain"
 json_close_array

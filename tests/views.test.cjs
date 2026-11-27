@@ -32,6 +32,7 @@ let updateReport={components:[{name:'rozaneh',current:'0.1.0-r5',latest:'0.1.0-r
 const calls=[],polls=[],uciWrites=[];
 const rpc={declare(spec){return (...args)=>{
  calls.push([spec.method,...args]);
+ if(spec.method==='diagnostic_logs')return Promise.resolve({text:'System socket counts: 12'});
  if(spec.method==='control'&&args[0].startsWith('killswitch_'))state={...state,lan_killswitch:args[0]==='killswitch_on'};
  else if(spec.method==='control')state={...state,enabled:args[0]!=='stop',running:args[0]!=='stop'};
  return Promise.resolve(spec.method==='status'?state:spec.method==='update_status'?updateReport:spec.method==='control'||spec.method==='install_update'||spec.method==='clear_logs'?{ok:true}:{});
@@ -97,9 +98,11 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert.equal(lanDevices.validate('main','br-lan'),true);
  assert.notEqual(lanDevices.validate('main','wan;reboot'),true);
  assert.equal(lanDevices.rmempty,false);
- state={...state,connected:false};
+ assert.equal(fields.find(f=>f.name==='lan_udp').default,'0');
+ state={...state,connected:false,tunnel_ready:true};
  await polls[0]();
  assert(root.textContent.includes('در حال اتصال…'));
+ assert(root.textContent.includes('نشست تونل برقرار است'));
  assert(!walk(root).some(n=>n.attrs.class==='mk-chip ok'&&n.textContent==='متصل'));
  switches[0].checked=false;switches[0].attrs.change();
  await new Promise(setImmediate);
@@ -126,6 +129,9 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert(fields.find(f=>f.name==='config_preset').choices.includes('survival'));
  assert(fields.find(f=>f.name==='resolver_ip_mode').choices.includes('dual'));
  assert.equal(fields.find(f=>f.name==='tunnel_mode').default,'legacy');
+ assert.deepEqual(fields.find(f=>f.name==='fec_download').choices,['','1','0']);
+ assert.deepEqual(fields.find(f=>f.name==='fec_data').dependency,{tunnel_mode:'cottenmax',fec_download:'1'});
+ assert.deepEqual(fields.find(f=>f.name==='fec_parity').dependency,{tunnel_mode:'cottenmax',fec_download:'1'});
  assert(fields.find(f=>f.name==='advanced_config').rows>=10);
  assert(!fields.some(f=>f.name==='max_inflight'));
  const menu=walk(settingsRoot).find(n=>n.tag==='nav');
@@ -144,6 +150,8 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  assert.equal(logOutput.textContent,originalLog);
  const logButtons=walk(logRoot).filter(n=>n.tag==='button');
  assert(logButtons.some(n=>n.textContent.includes('کپی')));
+ await logButtons.find(n=>n.textContent.includes('گزارش عیب‌یابی')).attrs.click();
+ assert(logRoot.textContent.includes('System socket counts: 12'));
  await logButtons.find(n=>n.textContent.includes('حذف')).attrs.click();
  assert(calls.some(c=>c[0]==='clear_logs'));
  assert.equal(logOutput.textContent,'گزارشی در این سطح وجود ندارد.');
@@ -184,5 +192,13 @@ const loadView=name=>new Function('view','form','rpc','uci','poll','ui','icons',
  const installRoot=updates.render([updateReport,state]);
  assert(installRoot.textContent.includes('در حال نصب'));
  assert(!installRoot.textContent.includes('42%'));
+ updateReport.rollback_version='0.1.0-r10';
+ updateReport.phase='health_failed';
+ const rollbackRoot=updates.render([updateReport,state]);
+ assert(rollbackRoot.textContent.includes('اتصال تونل دوباره برقرار نشد'));
+ const restore=walk(rollbackRoot).find(n=>n.tag==='button'&&n.attrs['data-action']==='app:update');
+ assert(restore.textContent.includes('بازگشت به 0.1.0-10'));
+ await restore.attrs.click();
+ assert(calls.some(c=>c[0]==='install_update'&&c[1]==='rollback'&&c[2]===false));
  console.log('Dashboard controls, automatic status and update row checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
